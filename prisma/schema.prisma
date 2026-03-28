@@ -1,0 +1,145 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── NextAuth required tables ───────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  accounts      Account[]
+  sessions      Session[]
+  rackets       Racket[]
+  playSessions  PlaySession[]
+  stringings    StringingRecord[]
+  playerProfile PlayerProfile?
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Racket Profile ─────────────────────────────────────────────
+
+model Racket {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand        String
+  model        String
+  weightClass  String
+  balancePoint String
+  stiffness    String
+  gripSize     String
+  purchaseDate DateTime?
+  photoUrl     String?
+  notes        String?
+  isPrimary    Boolean  @default(false)
+  isArchived   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  playSessions PlaySession[]
+  stringings   StringingRecord[]
+}
+
+// ─── Player Profile ─────────────────────────────────────────────
+
+model PlayerProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String   @default("Player")
+  skillLevel        String   @default("Intermediate")
+  playStyle         String   @default("All-round")
+  preferredStrings  String   @default("[]")
+  tensionMin        Float    @default(24)
+  tensionMax        Float    @default(26)
+  injuryNotes       String?
+  trainingFrequency Int      @default(3)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// ─── Play Session (renamed from Session to avoid NextAuth clash) ─
+
+model PlaySession {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date             DateTime @default(now())
+  sessionType      String
+  durationMinutes  Int
+  racketId         String
+  racket           Racket   @relation(fields: [racketId], references: [id])
+  performanceNotes String?
+  controlRating    Int?
+  powerRating      Int?
+  comfortRating    Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// ─── Stringing Record ───────────────────────────────────────────
+
+model StringingRecord {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime @default(now())
+  racketId        String
+  racket          Racket   @relation(fields: [racketId], references: [id])
+  stringBrand     String
+  stringModel     String
+  tensionMain     Float
+  tensionCross    Float
+  stringer        String?
+  cost            Float?
+  brokeAfter      Int?
+  durabilityNotes String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
