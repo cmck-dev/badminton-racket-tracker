@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:www.prisma.io)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "WebFetch(domain:recharts.org)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Read(//Users/I032015/Desktop/ClaudeCode-Projects/Project1/$HOME/**)",
+      "Read(//usr/local/bin/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(brew list:*)",
+      "Bash(echo $PATH)",
+      "Bash(/opt/homebrew/bin/brew list:*)",
+      "Bash(/opt/homebrew/bin/node --version)",
+      "Bash(ls /opt/homebrew/bin/node*)",
+      "Bash(ls /opt/homebrew/bin/npm*)",
+      "Bash(ls /opt/homebrew/bin/npx*)",
+      "Bash(/opt/homebrew/bin/brew install:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(npx create-next-app@latest /Users/I032015/Desktop/ClaudeCode-Projects/Project1 --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(mkdir -p /tmp/badminton-app)",
+      "Bash(npx create-next-app@latest /tmp/badminton-app --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npm run:*)",
+      "Bash(git init:*)",
+      "Bash(git remote:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
