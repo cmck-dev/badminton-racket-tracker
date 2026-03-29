@@ -11,23 +11,13 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
-  session: {
-    strategy: "jwt",
-  },
   pages: {
     signIn: "/auth/signin",
   },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
-    },
-    async session({ session, token }) {
+    async session({ session, user }) {
       if (session.user) {
-        // token.id set on sign-in, token.sub is NextAuth's built-in user id fallback
-        session.user.id = (token.id ?? token.sub) as string;
+        session.user.id = user.id;
       }
       return session;
     },

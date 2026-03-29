@@ -1,11 +1,7 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-
-// Temporarily disabled to isolate auth issue
-export function middleware(req: NextRequest) {
-  return NextResponse.next();
-}
+export { default } from "next-auth/middleware";
 
 export const config = {
-  matcher: [],
+  matcher: [
+    "/((?!auth|api/auth|api/debug-auth|_next/static|_next/image|favicon.ico).*)",
+  ],
 };
