@@ -1,35 +1,18 @@
-import { getToken } from "next-auth/jwt";
-import { cookies, headers } from "next/headers";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export async function requireAuth() {
-  const cookieStore = cookies();
-  const headersList = headers();
+  const session = await getServerSession(authOptions);
 
-  const token = await getToken({
-    req: {
-      headers: Object.fromEntries(headersList.entries()),
-      cookies: Object.fromEntries(
-        cookieStore.getAll().map((c) => [c.name, c.value])
-      ),
-    } as Parameters<typeof getToken>[0]["req"],
-    secret: process.env.NEXTAUTH_SECRET!,
-  });
-
-  if (!token) {
-    redirect("/auth/signin");
-  }
-
-  const userId = (token.id ?? token.sub) as string;
-
-  if (!userId) {
+  if (!session?.user?.id) {
     redirect("/auth/signin");
   }
 
   return {
-    id: userId,
-    name: (token.name as string | null) ?? null,
-    email: (token.email as string | null) ?? null,
-    image: (token.picture as string | null) ?? null,
+    id: session.user.id,
+    name: session.user.name ?? null,
+    email: session.user.email ?? null,
+    image: session.user.image ?? null,
   };
 }
