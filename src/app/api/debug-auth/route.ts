@@ -1,27 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { prisma } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
-  const protocol = req.nextUrl.protocol;
-  const isHttps = protocol === "https:";
+  const sessionToken =
+    req.cookies.get("__Secure-next-auth.session-token")?.value ??
+    req.cookies.get("next-auth.session-token")?.value;
 
-  // Test with auto-detection
-  const tokenAuto = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  // Test forcing secureCookie=true (production cookie name)
-  const tokenSecure = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: true });
-  // Test forcing secureCookie=false (dev cookie name)
-  const tokenInsecure = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: false });
+  const allCookies = req.cookies.getAll().map((c) => c.name);
 
-  const cookies = req.cookies.getAll().map((c) => c.name);
+  let dbResult: unknown = null;
+  let dbError: string | null = null;
+  let sessionCount = 0;
+
+  try {
+    sessionCount = await prisma.session.count();
+    if (sessionToken) {
+      dbResult = await prisma.session.findUnique({
+        where: { sessionToken },
+        select: { userId: true, expires: true },
+      });
+    }
+  } catch (e) {
+    dbError = String(e);
+  }
 
   return NextResponse.json({
-    protocol,
-    isHttps,
-    hasSecret: !!process.env.NEXTAUTH_SECRET,
-    cookieNames: cookies,
-    tokenAuto: !!tokenAuto,
-    tokenSecure: !!tokenSecure,
-    tokenInsecure: !!tokenInsecure,
-    tokenEmail: tokenSecure?.email ?? tokenAuto?.email ?? null,
+    cookieNames: allCookies,
+    sessionToken: sessionToken ?? null,
+    dbResult,
+    dbError,
+    sessionCount,
+    now: new Date().toISOString(),
   });
 }
