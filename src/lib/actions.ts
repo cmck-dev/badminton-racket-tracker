@@ -350,7 +350,44 @@ export async function deleteShuttle(id: string) {
   revalidatePath("/");
 }
 
-// ─── Analytics ─────────────────────────────────────────────────
+// ─── Feedback Actions ───────────────────────────────────────────
+
+export async function getFeedback() {
+  const user = await requireAuth();
+  return prisma.feedback.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createFeedback(data: {
+  type: string;
+  priority: string;
+  title: string;
+  description: string;
+}) {
+  const user = await requireAuth();
+  const feedback = await prisma.feedback.create({
+    data: { ...data, userId: user.id },
+  });
+  revalidatePath("/feedback");
+  return feedback;
+}
+
+export async function updateFeedbackStatus(id: string, status: string) {
+  const user = await requireAuth();
+  await prisma.feedback.updateMany({
+    where: { id, userId: user.id },
+    data: { status },
+  });
+  revalidatePath("/feedback");
+}
+
+export async function deleteFeedback(id: string) {
+  const user = await requireAuth();
+  await prisma.feedback.deleteMany({ where: { id, userId: user.id } });
+  revalidatePath("/feedback");
+}
 
 export async function getAnalyticsData() {
   const user = await requireAuth();

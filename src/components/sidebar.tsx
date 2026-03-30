@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   LogOut,
   Feather,
+  MessageSquarePlus,
 } from "lucide-react";
 import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/shuttles", label: "Shuttles", icon: Feather },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/profile", label: "Profile", icon: User },
+  { href: "/feedback", label: "Feedback", icon: MessageSquarePlus },
 ];
 
 export function Sidebar() {
