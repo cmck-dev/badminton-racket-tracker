@@ -22,13 +22,14 @@ import {
 } from "@/lib/actions";
 import {
   Plus,
-  Star,
   Archive,
   ArchiveRestore,
   Pencil,
   Trash2,
+  ChevronDown,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
+import { cn } from "@/lib/utils";
 
 type RacketWithRelations = {
   id: string;
@@ -42,7 +43,7 @@ type RacketWithRelations = {
   purchasePrice: number | null;
   photoUrl: string | null;
   notes: string | null;
-  isPrimary: boolean;
+  role: string | null;
   isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -56,6 +57,16 @@ const BALANCE = ["Head-heavy", "Even", "Head-light"];
 const STIFFNESS = ["Flexible", "Medium", "Stiff", "Extra Stiff"];
 const GRIPS = ["G4 (3.5\")", "G5 (3.25\")", "G6 (3.0\")"];
 
+export const ROLES = ["Primary", "Secondary", "Backup 1", "Backup 2"] as const;
+export type RacketRole = typeof ROLES[number];
+
+const ROLE_STYLES: Record<RacketRole, string> = {
+  "Primary":  "bg-yellow-100 text-yellow-800 border-yellow-300",
+  "Secondary": "bg-blue-100 text-blue-800 border-blue-300",
+  "Backup 1": "bg-green-100 text-green-800 border-green-300",
+  "Backup 2": "bg-gray-100 text-gray-700 border-gray-300",
+};
+
 const emptyForm = {
   brand: "Yonex",
   model: "",
@@ -67,6 +78,69 @@ const emptyForm = {
   purchasePrice: "",
   notes: "",
 };
+
+function RolePicker({ racket }: { racket: RacketWithRelations }) {
+  const [open, setOpen] = useState(false);
+
+  async function setRole(role: RacketRole | null) {
+    setOpen(false);
+    await updateRacket(racket.id, { role });
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border transition-colors",
+          racket.role
+            ? ROLE_STYLES[racket.role as RacketRole]
+            : "bg-background text-muted-foreground border-input hover:bg-accent"
+        )}
+      >
+        {racket.role ?? "Set role"}
+        <ChevronDown className="h-3 w-3" />
+      </button>
+
+      {open && (
+        <>
+          {/* backdrop */}
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-7 z-20 w-36 rounded-md border bg-popover shadow-md py-1">
+            {ROLES.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRole(r)}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors flex items-center gap-2",
+                  racket.role === r && "font-semibold"
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block w-2 h-2 rounded-full border",
+                    ROLE_STYLES[r]
+                  )}
+                />
+                {r}
+              </button>
+            ))}
+            <div className="border-t my-1" />
+            <button
+              type="button"
+              onClick={() => setRole(null)}
+              className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent transition-colors"
+            >
+              Remove role
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function RacketsClient({
   initialRackets,
@@ -81,9 +155,13 @@ export function RacketsClient({
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const rackets = initialRackets.filter(
-    (r) => showArchived || !r.isArchived
-  );
+  const rackets = initialRackets.filter((r) => showArchived || !r.isArchived);
+
+  // Role summary bar
+  const assigned = ROLES.map((role) => ({
+    role,
+    racket: initialRackets.find((r) => r.role === role),
+  }));
 
   function openCreate() {
     setEditingId(null);
@@ -135,10 +213,6 @@ export function RacketsClient({
     await deleteRacket(id);
   }
 
-  async function togglePrimary(id: string, current: boolean) {
-    await updateRacket(id, { isPrimary: !current });
-  }
-
   async function toggleArchive(id: string, current: boolean) {
     await updateRacket(id, { isArchived: !current });
   }
@@ -148,9 +222,7 @@ export function RacketsClient({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Rackets</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your racket collection
-          </p>
+          <p className="text-muted-foreground mt-1">Manage your racket collection</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowArchived(!showArchived)}>
@@ -161,6 +233,24 @@ export function RacketsClient({
             Add Racket
           </Button>
         </div>
+      </div>
+
+      {/* Role summary strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {assigned.map(({ role, racket: r }) => (
+          <div
+            key={role}
+            className={cn(
+              "rounded-lg border px-3 py-2 text-sm",
+              ROLE_STYLES[role]
+            )}
+          >
+            <p className="font-semibold text-xs uppercase tracking-wide opacity-70">{role}</p>
+            <p className="mt-0.5 font-medium truncate">
+              {r ? `${r.brand} ${r.model}` : <span className="italic opacity-50">Unassigned</span>}
+            </p>
+          </div>
+        ))}
       </div>
 
       {rackets.length === 0 ? (
@@ -176,43 +266,21 @@ export function RacketsClient({
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {rackets.map((r) => (
-            <Card
-              key={r.id}
-              className={r.isArchived ? "opacity-60" : ""}
-            >
+            <Card key={r.id} className={r.isArchived ? "opacity-60" : ""}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">
+                  <div className="min-w-0 flex-1 pr-2">
+                    <CardTitle className="text-lg truncate">
                       {r.brand} {r.model}
                     </CardTitle>
-                    <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                      {r.isPrimary && (
-                        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                          Primary
-                        </Badge>
-                      )}
-                      {r.isArchived && (
-                        <Badge variant="secondary">Archived</Badge>
-                      )}
+                    <div className="flex gap-1.5 mt-1.5 flex-wrap items-center">
+                      <RolePicker racket={r} />
+                      {r.isArchived && <Badge variant="secondary">Archived</Badge>}
                       <Badge variant="outline">{r.weightClass}</Badge>
                       <Badge variant="outline">{r.stiffness}</Badge>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => togglePrimary(r.id, r.isPrimary)}
-                      title={r.isPrimary ? "Remove primary" : "Set as primary"}
-                    >
-                      <Star
-                        className={`h-4 w-4 ${
-                          r.isPrimary ? "fill-yellow-400 text-yellow-400" : ""
-                        }`}
-                      />
-                    </Button>
+                  <div className="flex gap-1 shrink-0">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -241,9 +309,7 @@ export function RacketsClient({
                   <div>
                     <span className="text-muted-foreground">Hours:</span>{" "}
                     {Math.round(
-                      r.playSessions.reduce((s, x) => s + x.durationMinutes, 0) /
-                        60 *
-                        10
+                      r.playSessions.reduce((s, x) => s + x.durationMinutes, 0) / 60 * 10
                     ) / 10}
                   </div>
                   {r.purchasePrice != null && (
@@ -254,9 +320,7 @@ export function RacketsClient({
                   )}
                 </div>
                 {r.notes && (
-                  <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                    {r.notes}
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{r.notes}</p>
                 )}
                 <div className="flex gap-1 mt-3 pt-3 border-t">
                   <Button
@@ -265,15 +329,9 @@ export function RacketsClient({
                     onClick={() => toggleArchive(r.id, r.isArchived)}
                   >
                     {r.isArchived ? (
-                      <>
-                        <ArchiveRestore className="h-3 w-3 mr-1" />
-                        Restore
-                      </>
+                      <><ArchiveRestore className="h-3 w-3 mr-1" />Restore</>
                     ) : (
-                      <>
-                        <Archive className="h-3 w-3 mr-1" />
-                        Archive
-                      </>
+                      <><Archive className="h-3 w-3 mr-1" />Archive</>
                     )}
                   </Button>
                   <Button
@@ -296,9 +354,7 @@ export function RacketsClient({
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingId ? "Edit Racket" : "Add New Racket"}
-            </DialogTitle>
+            <DialogTitle>{editingId ? "Edit Racket" : "Add New Racket"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -331,13 +387,9 @@ export function RacketsClient({
                 <Select
                   id="weight"
                   value={form.weightClass}
-                  onChange={(e) =>
-                    setForm({ ...form, weightClass: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, weightClass: e.target.value })}
                 >
-                  {WEIGHTS.map((w) => (
-                    <option key={w} value={w}>{w}</option>
-                  ))}
+                  {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
                 </Select>
               </div>
               <div className="space-y-2">
@@ -345,13 +397,9 @@ export function RacketsClient({
                 <Select
                   id="balance"
                   value={form.balancePoint}
-                  onChange={(e) =>
-                    setForm({ ...form, balancePoint: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, balancePoint: e.target.value })}
                 >
-                  {BALANCE.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
+                  {BALANCE.map((b) => <option key={b} value={b}>{b}</option>)}
                 </Select>
               </div>
             </div>
@@ -361,13 +409,9 @@ export function RacketsClient({
                 <Select
                   id="stiffness"
                   value={form.stiffness}
-                  onChange={(e) =>
-                    setForm({ ...form, stiffness: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, stiffness: e.target.value })}
                 >
-                  {STIFFNESS.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
+                  {STIFFNESS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </Select>
               </div>
               <div className="space-y-2">
@@ -375,13 +419,9 @@ export function RacketsClient({
                 <Select
                   id="grip"
                   value={form.gripSize}
-                  onChange={(e) =>
-                    setForm({ ...form, gripSize: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, gripSize: e.target.value })}
                 >
-                  {GRIPS.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
+                  {GRIPS.map((g) => <option key={g} value={g}>{g}</option>)}
                 </Select>
               </div>
             </div>
@@ -392,9 +432,7 @@ export function RacketsClient({
                   id="purchaseDate"
                   type="date"
                   value={form.purchaseDate}
-                  onChange={(e) =>
-                    setForm({ ...form, purchaseDate: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -405,9 +443,7 @@ export function RacketsClient({
                   min="0"
                   step="0.01"
                   value={form.purchasePrice}
-                  onChange={(e) =>
-                    setForm({ ...form, purchasePrice: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
                   placeholder="e.g. 150"
                 />
               </div>
@@ -422,11 +458,7 @@ export function RacketsClient({
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowDialog(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>

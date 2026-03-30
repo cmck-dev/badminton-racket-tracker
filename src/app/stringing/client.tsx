@@ -45,7 +45,7 @@ type Racket = {
   id: string;
   brand: string;
   model: string;
-  isPrimary: boolean;
+  role: string | null;
   isArchived: boolean;
   playSessions: { id: string; durationMinutes: number }[];
   stringings: { id: string; date: Date }[];
@@ -91,7 +91,7 @@ export function StringingClient({
   const emptyForm = {
     date: new Date().toISOString().split("T")[0],
     racketId:
-      rackets.find((r) => r.isPrimary)?.id || rackets[0]?.id || "",
+      rackets.find((r) => r.role === "Primary")?.id || rackets[0]?.id || "",
     stringBrand: lastStringing?.stringBrand || "Yonex",
     stringModel: lastStringing?.stringModel || "BG65",
     tensionMain: lastStringing?.tensionMain?.toString() || "25",

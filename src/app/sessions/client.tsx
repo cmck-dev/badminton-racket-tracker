@@ -39,7 +39,7 @@ type Racket = {
   id: string;
   brand: string;
   model: string;
-  isPrimary: boolean;
+  role: string | null;
   isArchived: boolean;
   playSessions: { id: string; durationMinutes: number }[];
   stringings: { id: string; date: Date }[];
@@ -95,7 +95,7 @@ export function SessionsClient({
   const now = new Date();
   const defaultRacket =
     lastSession?.racketId ||
-    rackets.find((r) => r.isPrimary)?.id ||
+    rackets.find((r) => r.role === "Primary")?.id ||
     rackets[0]?.id ||
     "";
 
@@ -373,7 +373,7 @@ export function SessionsClient({
                 >
                   {rackets.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.brand} {r.model} {r.isPrimary ? "(Primary)" : ""}
+                      {r.brand} {r.model} {r.role === "Primary" ? "(Primary)" : ""}
                     </option>
                   ))}
                 </Select>

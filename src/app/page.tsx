@@ -58,8 +58,8 @@ export default async function DashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">{activeRackets}</div>
               <p className="text-xs text-muted-foreground">
-                {rackets.find((r) => r.isPrimary)
-                  ? `Primary: ${rackets.find((r) => r.isPrimary)?.brand} ${rackets.find((r) => r.isPrimary)?.model}`
+                {rackets.find((r) => r.role === "Primary")
+                  ? `Primary: ${rackets.find((r) => r.role === "Primary")?.brand} ${rackets.find((r) => r.role === "Primary")?.model}`
                   : "No primary set"}
               </p>
             </CardContent>

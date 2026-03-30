@@ -17,7 +17,7 @@ export async function getRackets(includeArchived = false) {
       playSessions: { select: { id: true, durationMinutes: true, date: true } },
       stringings: { orderBy: { date: "desc" }, take: 1 },
     },
-    orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ role: "asc" }, { createdAt: "desc" }],
   });
 }
 
@@ -68,15 +68,16 @@ export async function updateRacket(
     purchaseDate?: string | null;
     purchasePrice?: number | null;
     notes?: string;
-    isPrimary?: boolean;
+    role?: string | null;
     isArchived?: boolean;
   }
 ) {
   const user = await requireAuth();
-  if (data.isPrimary) {
+  // Each role must be unique — clear it from any other racket first
+  if (data.role) {
     await prisma.racket.updateMany({
-      where: { userId: user.id, isPrimary: true },
-      data: { isPrimary: false },
+      where: { userId: user.id, role: data.role },
+      data: { role: null },
     });
   }
   const racket = await prisma.racket.updateMany({

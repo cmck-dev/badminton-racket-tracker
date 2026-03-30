@@ -78,7 +78,7 @@ model Racket {
   purchasePrice Float?
   photoUrl      String?
   notes        String?
-  isPrimary    Boolean  @default(false)
+  role         String?
   isArchived   Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
