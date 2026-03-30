@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, TrendingUp, Wrench, DollarSign, BarChart3, Clock, Feather, Swords } from "lucide-react";
+import { useCurrency } from "@/contexts/currency-context";
 
 const COLORS = ["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
@@ -48,6 +49,7 @@ type AnalyticsData = {
 };
 
 export function AnalyticsClient({ data }: { data: AnalyticsData }) {
+  const { fmt } = useCurrency();
   const sessionTypeData = [
     { name: "Match", value: data.sessionTypes.Match },
     { name: "Practice", value: data.sessionTypes.Practice },
@@ -91,9 +93,9 @@ export function AnalyticsClient({ data }: { data: AnalyticsData }) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${data.totalStringingCost.toFixed(0)}</div>
+            <div className="text-2xl font-bold">{fmt(data.totalStringingCost)}</div>
             <p className="text-xs text-muted-foreground">
-              ${data.costPerSession.toFixed(2)} / session
+              {fmt(data.costPerSession)} / session
             </p>
           </CardContent>
         </Card>
@@ -118,34 +120,34 @@ export function AnalyticsClient({ data }: { data: AnalyticsData }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold mb-4">${data.grandTotalCost.toFixed(0)}</div>
+          <div className="text-3xl font-bold mb-4">{fmt(data.grandTotalCost)}</div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="flex items-center gap-2">
               <Swords className="h-4 w-4 text-muted-foreground shrink-0" />
               <div>
                 <p className="text-xs text-muted-foreground">Rackets</p>
-                <p className="text-sm font-medium">${data.totalRacketCost.toFixed(0)}</p>
+                <p className="text-sm font-medium">{fmt(data.totalRacketCost)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
               <div>
                 <p className="text-xs text-muted-foreground">Stringing</p>
-                <p className="text-sm font-medium">${data.totalStringingCost.toFixed(0)}</p>
+                <p className="text-sm font-medium">{fmt(data.totalStringingCost)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-muted-foreground shrink-0" />
               <div>
                 <p className="text-xs text-muted-foreground">Court</p>
-                <p className="text-sm font-medium">${data.totalCourtCost.toFixed(0)}</p>
+                <p className="text-sm font-medium">{fmt(data.totalCourtCost)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Feather className="h-4 w-4 text-muted-foreground shrink-0" />
               <div>
                 <p className="text-xs text-muted-foreground">Shuttles</p>
-                <p className="text-sm font-medium">${data.totalShuttleCost.toFixed(0)}</p>
+                <p className="text-sm font-medium">{fmt(data.totalShuttleCost)}</p>
               </div>
             </div>
           </div>
@@ -341,8 +343,8 @@ export function AnalyticsClient({ data }: { data: AnalyticsData }) {
                   <BarChart data={data.monthlyCostData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                    <YAxis tickFormatter={(v) => `$${v}`} />
-                    <Tooltip formatter={(v) => [`$${v}`, "Cost"]} />
+                    <YAxis tickFormatter={(v) => fmt(v as number)} />
+                    <Tooltip formatter={(v) => [fmt(v as number), "Cost"]} />
                     <Bar dataKey="cost" fill="#3b82f6" radius={[3, 3, 0, 0]} name="Cost" />
                   </BarChart>
                 </ResponsiveContainer>

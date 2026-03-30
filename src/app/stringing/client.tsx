@@ -21,6 +21,7 @@ import {
   deleteStringing,
 } from "@/lib/actions";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useCurrency } from "@/contexts/currency-context";
 
 type StringingWithRacket = {
   id: string;
@@ -77,6 +78,7 @@ export function StringingClient({
   initialStringings: StringingWithRacket[];
   rackets: Racket[];
 }) {
+  const { fmt } = useCurrency();
   const searchParams = useSearchParams();
   const [showDialog, setShowDialog] = useState(
     searchParams.get("new") === "true"
@@ -230,7 +232,7 @@ export function StringingClient({
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">
-                  ${filteredStringings.reduce((s, x) => s + (x.cost || 0), 0).toFixed(0)}
+                  {fmt(filteredStringings.reduce((s, x) => s + (x.cost || 0), 0))}
                 </div>
                 <p className="text-xs text-muted-foreground">Total Cost</p>
               </CardContent>
@@ -305,7 +307,7 @@ export function StringingClient({
                       <div className="flex items-center gap-2">
                         {s.cost && (
                           <span className="text-sm font-medium">
-                            ${s.cost.toFixed(2)}
+                            {fmt(s.cost)}
                           </span>
                         )}
                         {s.brokeAfter && (

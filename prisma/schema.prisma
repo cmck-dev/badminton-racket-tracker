@@ -101,6 +101,7 @@ model PlayerProfile {
   tensionMax        Float    @default(26)
   injuryNotes       String?
   trainingFrequency Int      @default(3)
+  currency          String   @default("USD")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

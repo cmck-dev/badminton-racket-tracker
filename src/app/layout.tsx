@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { Providers } from "@/components/providers";
+import { getPlayerProfile } from "@/lib/actions";
+import type { CurrencyCode } from "@/lib/currency";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,15 +22,23 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  let defaultCurrency: CurrencyCode = "USD";
+  try {
+    const profile = await getPlayerProfile();
+    if (profile.currency) defaultCurrency = profile.currency as CurrencyCode;
+  } catch {
+    // not signed in yet — default to USD
+  }
+
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Providers>
+        <Providers defaultCurrency={defaultCurrency}>
           <div className="flex min-h-screen">
             <Sidebar />
             <main className="flex-1 min-w-0">

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { createSession, updateSession, deleteSession } from "@/lib/actions";
 import { Plus, Pencil, Trash2, Star } from "lucide-react";
+import { useCurrency } from "@/contexts/currency-context";
 
 type SessionWithRacket = {
   id: string;
@@ -89,6 +90,7 @@ export function SessionsClient({
   rackets: Racket[];
   lastSession: SessionWithRacket | null;
 }) {
+  const { fmt } = useCurrency();
   const searchParams = useSearchParams();
   const now = new Date();
   const defaultRacket =
@@ -261,7 +263,7 @@ export function SessionsClient({
                         </span>
                         {s.courtCost != null && s.courtCost > 0 && (
                           <span className="text-sm text-muted-foreground">
-                            Court: ${s.courtCost.toFixed(0)}
+                            Court: {fmt(s.courtCost)}
                           </span>
                         )}
                       </div>

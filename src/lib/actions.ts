@@ -266,6 +266,7 @@ export async function updatePlayerProfile(data: {
   tensionMax?: number;
   injuryNotes?: string;
   trainingFrequency?: number;
+  currency?: string;
 }) {
   const user = await requireAuth();
   const profile = await prisma.playerProfile.upsert({

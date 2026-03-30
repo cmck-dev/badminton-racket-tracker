@@ -28,6 +28,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { useCurrency } from "@/contexts/currency-context";
 
 type RacketWithRelations = {
   id: string;
@@ -73,6 +74,7 @@ export function RacketsClient({
   initialRackets: RacketWithRelations[];
 }) {
   const searchParams = useSearchParams();
+  const { fmt } = useCurrency();
   const [showDialog, setShowDialog] = useState(searchParams.get("new") === "true");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -247,7 +249,7 @@ export function RacketsClient({
                   {r.purchasePrice != null && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Purchased:</span>{" "}
-                      ${r.purchasePrice.toFixed(0)}
+                      {fmt(r.purchasePrice)}
                     </div>
                   )}
                 </div>

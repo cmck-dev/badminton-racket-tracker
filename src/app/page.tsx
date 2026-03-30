@@ -12,6 +12,7 @@ import {
   Feather,
   DollarSign,
 } from "lucide-react";
+import { CurrencyAmount } from "@/components/currency-amount";
 
 export default async function DashboardPage() {
   const [rackets, sessions, stringings, shuttles] = await Promise.all([
@@ -85,7 +86,7 @@ export default async function DashboardPage() {
               <Wrench className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalStringingCost.toFixed(0)}</div>
+              <div className="text-2xl font-bold"><CurrencyAmount amount={totalStringingCost} /></div>
               <p className="text-xs text-muted-foreground">{stringings.length} total stringings</p>
             </CardContent>
           </Card>
@@ -99,7 +100,7 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{shuttles.length}</div>
-              <p className="text-xs text-muted-foreground">${totalShuttleCost.toFixed(0)} spent</p>
+              <p className="text-xs text-muted-foreground"><CurrencyAmount amount={totalShuttleCost} /> spent</p>
             </CardContent>
           </Card>
         </Link>
@@ -116,12 +117,12 @@ export default async function DashboardPage() {
             <span className="text-xs text-muted-foreground">View breakdown →</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${grandTotal.toFixed(0)}</div>
+            <div className="text-2xl font-bold"><CurrencyAmount amount={grandTotal} /></div>
             <div className="flex gap-4 mt-1 flex-wrap">
-              <span className="text-xs text-muted-foreground">Rackets: ${totalRacketCost.toFixed(0)}</span>
-              <span className="text-xs text-muted-foreground">Stringing: ${totalStringingCost.toFixed(0)}</span>
-              <span className="text-xs text-muted-foreground">Court: ${totalCourtCost.toFixed(0)}</span>
-              <span className="text-xs text-muted-foreground">Shuttles: ${totalShuttleCost.toFixed(0)}</span>
+              <span className="text-xs text-muted-foreground">Rackets: <CurrencyAmount amount={totalRacketCost} /></span>
+              <span className="text-xs text-muted-foreground">Stringing: <CurrencyAmount amount={totalStringingCost} /></span>
+              <span className="text-xs text-muted-foreground">Court: <CurrencyAmount amount={totalCourtCost} /></span>
+              <span className="text-xs text-muted-foreground">Shuttles: <CurrencyAmount amount={totalShuttleCost} /></span>
             </div>
           </CardContent>
         </Card>

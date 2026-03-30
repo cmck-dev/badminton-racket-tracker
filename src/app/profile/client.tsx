@@ -9,7 +9,9 @@ import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { updatePlayerProfile } from "@/lib/actions";
-import { Save, User, Target, Gauge } from "lucide-react";
+import { Save, User, Target, Gauge, DollarSign } from "lucide-react";
+import { useCurrency } from "@/contexts/currency-context";
+import { CURRENCIES, type CurrencyCode } from "@/lib/currency";
 
 type PlayerProfile = {
   id: string;
@@ -21,6 +23,7 @@ type PlayerProfile = {
   tensionMax: number;
   injuryNotes: string | null;
   trainingFrequency: number;
+  currency: string;
 };
 
 const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced", "Competitive"];
@@ -48,6 +51,7 @@ export function ProfileClient({
 }: {
   initialProfile: PlayerProfile;
 }) {
+  const { setCurrency } = useCurrency();
   const [form, setForm] = useState({
     name: initialProfile.name,
     skillLevel: initialProfile.skillLevel,
@@ -57,6 +61,7 @@ export function ProfileClient({
     tensionMax: initialProfile.tensionMax.toString(),
     injuryNotes: initialProfile.injuryNotes || "",
     trainingFrequency: initialProfile.trainingFrequency.toString(),
+    currency: (initialProfile.currency || "USD") as CurrencyCode,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -83,7 +88,9 @@ export function ProfileClient({
         tensionMax: parseFloat(form.tensionMax),
         injuryNotes: form.injuryNotes || undefined,
         trainingFrequency: parseInt(form.trainingFrequency),
+        currency: form.currency,
       });
+      setCurrency(form.currency);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
@@ -245,6 +252,38 @@ export function ProfileClient({
                 placeholder="e.g. Tennis elbow, shoulder issues..."
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Currency */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Currency
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-3">
+              {CURRENCIES.map((c) => (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => setForm({ ...form, currency: c.code })}
+                  className={`flex-1 py-3 rounded-lg border text-sm font-medium transition-colors ${
+                    form.currency === c.code
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background hover:bg-accent border-input"
+                  }`}
+                >
+                  <div className="text-xl">{c.symbol}</div>
+                  <div>{c.code}</div>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Approximate fixed rates: 1 USD = 83.5 INR = 0.92 EUR. All amounts are stored in USD.
+            </p>
           </CardContent>
         </Card>
 

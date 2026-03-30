@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { createShuttle, updateShuttle, deleteShuttle } from "@/lib/actions";
 import { Plus, Pencil, Trash2, Feather } from "lucide-react";
+import { useCurrency } from "@/contexts/currency-context";
 
 type Shuttle = {
   id: string;
@@ -52,6 +53,7 @@ export function ShuttlesClient({
 }: {
   initialShuttles: Shuttle[];
 }) {
+  const { fmt } = useCurrency();
   const searchParams = useSearchParams();
   const [showDialog, setShowDialog] = useState(searchParams.get("new") === "true");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -136,7 +138,7 @@ export function ShuttlesClient({
       {initialShuttles.length > 0 && (
         <div className="flex gap-4 text-sm text-muted-foreground">
           <span>{initialShuttles.length} entries</span>
-          <span>Total spent: <strong className="text-foreground">${totalSpent.toFixed(0)}</strong></span>
+          <span>Total spent: <strong className="text-foreground">{fmt(totalSpent)}</strong></span>
         </div>
       )}
 
@@ -197,13 +199,13 @@ export function ShuttlesClient({
                   {s.price != null && (
                     <div>
                       <span className="text-muted-foreground">Price:</span>{" "}
-                      ${s.price.toFixed(2)}
+                      {fmt(s.price)}
                     </div>
                   )}
                   {s.price != null && s.quantity != null && (
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Total:</span>{" "}
-                      ${(s.price * s.quantity).toFixed(2)}
+                      {fmt(s.price * s.quantity)}
                     </div>
                   )}
                   {s.purchaseDate && (

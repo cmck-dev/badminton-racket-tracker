@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
+import { useCurrency } from "@/contexts/currency-context";
+import { CURRENCIES } from "@/lib/currency";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -34,6 +36,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
+  const { currency, setCurrency } = useCurrency();
 
   return (
     <>
@@ -95,6 +98,29 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        {/* Currency switcher */}
+        {!collapsed && (
+          <div className="px-3 py-2 border-t">
+            <p className="text-xs text-muted-foreground mb-1.5">Currency</p>
+            <div className="flex gap-1">
+              {CURRENCIES.map((c) => (
+                <button
+                  key={c.code}
+                  onClick={() => setCurrency(c.code)}
+                  className={cn(
+                    "flex-1 text-xs py-1 rounded border transition-colors",
+                    currency === c.code
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-input hover:bg-accent"
+                  )}
+                >
+                  {c.symbol} {c.code}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Collapse toggle */}
         <button
