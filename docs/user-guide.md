@@ -2,7 +2,7 @@
 
 🔗 **App URL: https://project-90dmh.vercel.app**
 
-ShuttleTrack helps you manage your badminton rackets, track play sessions, monitor stringing history, and analyse your equipment performance over time.
+ShuttleTrack helps you manage your badminton rackets, track play sessions, monitor stringing history, track shuttlecocks, and analyse your equipment performance and spending over time.
 
 ---
 
@@ -13,9 +13,11 @@ ShuttleTrack helps you manage your badminton rackets, track play sessions, monit
 3. [Rackets](#rackets)
 4. [Sessions](#sessions)
 5. [Stringing](#stringing)
-6. [Analytics](#analytics)
-7. [Profile](#profile)
-8. [Tips & Best Practices](#tips--best-practices)
+6. [Shuttles](#shuttles)
+7. [Analytics](#analytics)
+8. [Profile](#profile)
+9. [Currency](#currency)
+10. [Tips & Best Practices](#tips--best-practices)
 
 ---
 
@@ -38,20 +40,30 @@ Click the **sign-out icon** (→) at the bottom of the left sidebar, next to you
 
 ## Dashboard
 
-The Dashboard gives you a quick overview of your equipment and activity.
+The Dashboard gives you a quick overview of your equipment and activity. Every card is clickable and takes you directly to the relevant page.
 
 ### Stats Cards
 
-| Card | What it shows |
-|------|--------------|
-| **Active Rackets** | Number of rackets in your active roster, and which one is your primary |
-| **Total Sessions** | All play sessions logged across all rackets |
-| **Play Time** | Total hours played across all sessions |
-| **Stringing Cost** | Cumulative money spent on stringing |
+| Card | What it shows | Links to |
+|------|--------------|----------|
+| **Active Rackets** | Number of rackets in your active roster, and which one is your primary | Rackets page |
+| **Total Sessions** | All play sessions logged, with total hours played | Sessions page |
+| **Stringing Cost** | Cumulative money spent on stringing | Stringing page |
+| **Shuttles** | Number of shuttle entries and total amount spent | Shuttles page |
+
+### Total Investment
+
+A summary card showing your **grand total spend** across all categories:
+- Rackets (purchase prices)
+- Stringing (service charges)
+- Court (rent per session)
+- Shuttles
+
+Click it to jump to the full Analytics breakdown.
 
 ### Restring Alerts
 
-The app automatically flags rackets that may need restringing — triggered when 15 or more sessions have been played since the last stringing. Use this as a reminder to check string tension and condition.
+The app automatically flags rackets that may need restringing — triggered when 15 or more sessions have been played since the last stringing. Clicking an alert takes you directly to the Log Stringing form.
 
 ### Recent Sessions
 
@@ -63,7 +75,7 @@ Four shortcut buttons let you jump directly to common tasks:
 - **Log Session** — record a new play session
 - **Add Racket** — register a new racket
 - **Log Stringing** — record a new stringing
-- **View Analytics** — open the analytics page
+- **Add Shuttle** — add a shuttlecock entry
 
 ---
 
@@ -81,13 +93,14 @@ Manage your full racket collection here.
    - **Stiffness** — Flexible, Medium, Stiff, Extra Stiff
    - **Grip Size** — G4, G5, etc.
    - **Purchase Date** — optional
+   - **Purchase Price** — optional; used in the total investment calculation
    - **Notes** — any personal notes about the racket
 3. Click **Save**
 
 ### Setting a Primary Racket
 
 Your primary racket is your main/go-to racket. To set one:
-- Open the racket → click **Set as Primary**
+- Open the racket → click the **★ star icon**
 
 Only one racket can be primary at a time. The primary racket is highlighted on the Dashboard.
 
@@ -114,26 +127,32 @@ Log every time you play to build an accurate picture of your racket usage.
 1. Go to **Sessions** → click **Log Session**
 2. Select the racket you used
 3. Fill in:
-   - **Date** — defaults to today
-   - **Session Type** — Practice, Match, Training, Casual
+   - **Date & Time** — defaults to now
+   - **Session Type** — Practice, Match, or Training
    - **Duration** — in minutes
-   - **Performance Ratings** (optional, 1–10):
+   - **Performance Ratings** (optional, 1–5 stars):
      - Control Rating
      - Power Rating
      - Comfort Rating
    - **Notes** — any observations about the session or racket feel
+   - **Court Cost** — optional; the court rental fee for the session
 4. Click **Save**
+
+### Court Cost
+
+Recording court costs lets the app track your total court spend over time. It is displayed alongside each session in the list and included in the **Total Investment** breakdown on the Dashboard and Analytics page.
 
 ### Editing & Deleting Sessions
 
-- Click any session to edit the details
-- Use the **Delete** option to remove a session permanently
+- Click the **pencil icon** on any session to edit the details
+- Click the **trash icon** to remove a session permanently
 
 ### Why Log Sessions?
 
 - Tracks total playtime per racket
 - Powers the restring alert system (counts sessions since last stringing)
 - Feeds into the Analytics charts
+- Court costs feed into total investment tracking
 
 ---
 
@@ -148,9 +167,9 @@ Keep a complete history of every time your rackets are strung.
 3. Fill in:
    - **Date** — when it was strung
    - **String Brand & Model** — e.g. Yonex BG80
-   - **Tension (Mains / Cross)** — in lbs or kg
+   - **Tension (Mains / Cross)** — in lbs
    - **Stringer** — who strung it (optional)
-   - **Cost** — amount paid (optional)
+   - **Cost** — service charge paid (optional); included in total investment
    - **Durability Notes** — optional observations
 4. Click **Save**
 
@@ -164,25 +183,75 @@ The most recent stringing for each racket is marked as **Active**. This is used 
 
 ---
 
+## Shuttles
+
+Track your shuttlecock inventory and spending in one place.
+
+### Adding a Shuttle Entry
+
+1. Go to **Shuttles** in the sidebar → click **Add Shuttle**
+2. Fill in:
+   - **Brand** — e.g. Yonex, Victor, RSL
+   - **Model** — optional, e.g. AS-50
+   - **Type** — Feather, Nylon, or Hybrid
+   - **Speed** — optional (75, 76, 77, 78, Slow, Medium, Fast)
+   - **Quantity** — number of tubes/shuttles purchased
+   - **Price** — price per tube (optional)
+   - **Purchase Date** — optional
+   - **Notes** — durability, flight quality, court conditions etc.
+3. Click **Save**
+
+### Cost Tracking
+
+If you enter both **Quantity** and **Price**, the card shows the total for that purchase (quantity × price). The Shuttles page shows a running total of all shuttle spend at the top. This feeds into the **Total Investment** card on the Dashboard.
+
+### Editing & Deleting
+
+- Click the **pencil icon** on any shuttle card to edit
+- Click the **trash icon** to delete an entry
+
+---
+
 ## Analytics
 
 The Analytics page visualises your data to help you understand your playing patterns and equipment performance.
+
+### Summary KPIs
+
+At the top of the page:
+- Total sessions logged
+- Total hours played
+- Total stringing cost
+- Total number of stringings
+
+### Total Investment Breakdown
+
+A detailed cost card showing your **grand total spend** broken down into four categories:
+
+| Category | What's included |
+|----------|----------------|
+| **Rackets** | Sum of all racket purchase prices |
+| **Stringing** | Sum of all stringing service charges |
+| **Court** | Sum of all court rental costs from sessions |
+| **Shuttles** | Sum of all shuttle purchases (qty × price) |
 
 ### Charts Available
 
 | Chart | What it shows |
 |-------|--------------|
-| **Sessions Over Time** | Bar chart of sessions per month |
-| **Play Time by Racket** | How many hours each racket has been used |
-| **Session Type Breakdown** | Pie chart — Practice vs Match vs Training vs Casual |
-| **Stringing Cost Over Time** | Cumulative spending on stringing |
-| **Average Performance Ratings** | Control, Power, and Comfort ratings per racket |
+| **Weekly Activity** | Bar chart of sessions per week (last 12 weeks) |
+| **Monthly Overview** | Sessions and hours per month (line chart) |
+| **Racket Usage** | Sessions per racket (horizontal bar) |
+| **Session Types** | Pie chart — Practice vs Match vs Training |
+| **Monthly Stringing Cost** | Stringing spend per month |
+| **String Performance** | Average lifespan per string type (in sessions) |
+| **Racket Summary** | Table of sessions and hours per racket |
 
 ### Getting the Most from Analytics
 
 - The more sessions and stringings you log, the richer the charts become
-- Use **Play Time by Racket** to identify if you're overusing one racket
-- Use **Average Performance Ratings** to compare how different rackets feel
+- Use **Racket Usage** to identify if you're overusing one racket
+- Log **Court Cost** on every session for an accurate Total Investment figure
 
 ---
 
@@ -195,14 +264,48 @@ Set your player preferences so the app can give context to your data.
 | Field | Description |
 |-------|-------------|
 | **Name** | Your display name |
-| **Skill Level** | Beginner / Intermediate / Advanced / Professional |
-| **Play Style** | All-round / Attacking / Defensive / Singles / Doubles |
-| **Preferred Strings** | Your go-to string brands/models |
-| **Tension Range** | Your preferred stringing tension (min–max) |
+| **Skill Level** | Beginner / Intermediate / Advanced / Competitive |
+| **Play Style** | All-round / Attacking / Defensive |
+| **Preferred Strings** | Your go-to string brands/models (tap to toggle) |
+| **Tension Range** | Your preferred stringing tension (min–max lbs) |
 | **Training Frequency** | How many sessions per week you typically play |
 | **Injury Notes** | Any relevant physical notes (e.g. tennis elbow) |
+| **Currency** | Your preferred display currency (USD / INR / EUR) |
 
 Click **Save Profile** after making changes.
+
+---
+
+## Currency
+
+ShuttleTrack supports three currencies: **USD ($)**, **Indian Rupee (₹)**, and **Euro (€)**.
+
+### Setting Your Default Currency
+
+1. Go to **Profile**
+2. In the **Currency** section, select your preferred currency
+3. Click **Save Profile**
+
+This preference is saved to your account and remembered across devices.
+
+### Runtime Currency Switching
+
+You can switch currencies at any time without going to Profile:
+- Look at the bottom of the **sidebar** — there are three buttons: `$ USD`, `₹ INR`, `€ EUR`
+- Click any button to instantly switch all money displays across the app
+
+The runtime selection is saved in your browser (localStorage) and remembered until you change it again.
+
+### How Conversion Works
+
+All amounts are **stored in USD**. When a non-USD currency is active, amounts are converted using fixed approximate rates:
+
+| From | To | Rate |
+|------|----|------|
+| USD | INR | × 83.5 |
+| USD | EUR | × 0.92 |
+
+> **Note:** These are fixed approximate rates, not live exchange rates. Enter costs in USD (or their USD equivalent) when logging them for the most consistent results.
 
 ---
 
@@ -210,10 +313,13 @@ Click **Save Profile** after making changes.
 
 - **Log sessions right after playing** — it takes 30 seconds and keeps your data accurate
 - **Set a primary racket** — makes the Dashboard more meaningful
+- **Record court costs** — even a rough figure gives you a much more complete Total Investment picture
 - **Record stringing costs** — the cumulative cost chart is surprisingly motivating
+- **Add shuttle entries when you buy a new tube** — easy way to track shuttlecock spend over time
 - **Use the Notes field on sessions** — useful for tracking how a racket feels when it needs restringing vs when it's freshly strung
 - **Archive, don't delete** — archiving retired rackets preserves all historical data for analytics
 - **Log breakage** — filling in "Broke After" on stringings helps you identify which strings last longest for your style of play
+- **Use the sidebar currency switcher** — handy if you want to quickly check costs in a different currency without changing your default
 
 ---
 
