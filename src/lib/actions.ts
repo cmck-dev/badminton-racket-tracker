@@ -40,6 +40,7 @@ export async function createRacket(data: {
   stiffness: string;
   gripSize: string;
   purchaseDate?: string;
+  purchasePrice?: number;
   notes?: string;
 }) {
   const user = await requireAuth();
@@ -65,6 +66,7 @@ export async function updateRacket(
     stiffness?: string;
     gripSize?: string;
     purchaseDate?: string | null;
+    purchasePrice?: number | null;
     notes?: string;
     isPrimary?: boolean;
     isArchived?: boolean;
@@ -124,6 +126,7 @@ export async function createSession(data: {
   controlRating?: number;
   powerRating?: number;
   comfortRating?: number;
+  courtCost?: number;
 }) {
   const user = await requireAuth();
   const session = await prisma.playSession.create({
@@ -146,6 +149,7 @@ export async function updateSession(
     controlRating?: number;
     powerRating?: number;
     comfortRating?: number;
+    courtCost?: number | null;
   }
 ) {
   const user = await requireAuth();
@@ -274,12 +278,82 @@ export async function updatePlayerProfile(data: {
   return profile;
 }
 
+// ─── Shuttle Actions ────────────────────────────────────────────
+
+export async function getShuttles() {
+  const user = await requireAuth();
+  return prisma.shuttle.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createShuttle(data: {
+  brand: string;
+  model?: string;
+  type: string;
+  speed?: string;
+  quantity?: number;
+  price?: number;
+  purchaseDate?: string;
+  notes?: string;
+}) {
+  const user = await requireAuth();
+  const shuttle = await prisma.shuttle.create({
+    data: {
+      ...data,
+      userId: user.id,
+      purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
+    },
+  });
+  revalidatePath("/shuttles");
+  revalidatePath("/");
+  return shuttle;
+}
+
+export async function updateShuttle(
+  id: string,
+  data: {
+    brand?: string;
+    model?: string;
+    type?: string;
+    speed?: string;
+    quantity?: number | null;
+    price?: number | null;
+    purchaseDate?: string | null;
+    notes?: string;
+  }
+) {
+  const user = await requireAuth();
+  await prisma.shuttle.updateMany({
+    where: { id, userId: user.id },
+    data: {
+      ...data,
+      purchaseDate:
+        data.purchaseDate === null
+          ? null
+          : data.purchaseDate
+          ? new Date(data.purchaseDate)
+          : undefined,
+    },
+  });
+  revalidatePath("/shuttles");
+  revalidatePath("/");
+}
+
+export async function deleteShuttle(id: string) {
+  const user = await requireAuth();
+  await prisma.shuttle.deleteMany({ where: { id, userId: user.id } });
+  revalidatePath("/shuttles");
+  revalidatePath("/");
+}
+
 // ─── Analytics ─────────────────────────────────────────────────
 
 export async function getAnalyticsData() {
   const user = await requireAuth();
 
-  const [rackets, sessions, stringings, profile] = await Promise.all([
+  const [rackets, sessions, stringings, shuttles, profile] = await Promise.all([
     prisma.racket.findMany({
       where: { userId: user.id },
       include: { playSessions: true, stringings: true },
@@ -294,6 +368,7 @@ export async function getAnalyticsData() {
       include: { racket: true },
       orderBy: { date: "asc" },
     }),
+    prisma.shuttle.findMany({ where: { userId: user.id } }),
     getPlayerProfile(),
   ]);
 
@@ -379,17 +454,27 @@ export async function getAnalyticsData() {
     });
 
   const sessionTypes = {
-    Match: sessions.filter((s) => s.sessionType === "Match").length,
-    Practice: sessions.filter((s) => s.sessionType === "Practice").length,
-    Training: sessions.filter((s) => s.sessionType === "Training").length,
+    Match: sessions.filter((s: { sessionType: string }) => s.sessionType === "Match").length,
+    Practice: sessions.filter((s: { sessionType: string }) => s.sessionType === "Practice").length,
+    Training: sessions.filter((s: { sessionType: string }) => s.sessionType === "Training").length,
   };
+
+  // Cost breakdown
+  const totalRacketCost = rackets.reduce((sum: number, r: { purchasePrice: number | null }) => sum + (r.purchasePrice ?? 0), 0);
+  const totalCourtCost = sessions.reduce((sum: number, s: { courtCost: number | null }) => sum + (s.courtCost ?? 0), 0);
+  const totalShuttleCost = shuttles.reduce((sum: number, s: { price: number | null; quantity: number | null }) => sum + ((s.price ?? 0) * (s.quantity ?? 1)), 0);
+  const grandTotalCost = totalRacketCost + totalStringingCost + totalCourtCost + totalShuttleCost;
 
   return {
     totalSessions: sessions.length,
-    totalHours: Math.round((sessions.reduce((s, x) => s + x.durationMinutes, 0) / 60) * 10) / 10,
-    totalRackets: rackets.filter((r) => !r.isArchived).length,
+    totalHours: Math.round((sessions.reduce((s: { durationMinutes: number }, x: { durationMinutes: number }) => ({ durationMinutes: s.durationMinutes + x.durationMinutes }), { durationMinutes: 0 }).durationMinutes / 60) * 10) / 10,
+    totalRackets: rackets.filter((r: { isArchived: boolean }) => !r.isArchived).length,
     totalStringings: stringings.length,
     totalStringingCost: Math.round(totalStringingCost * 100) / 100,
+    totalRacketCost: Math.round(totalRacketCost * 100) / 100,
+    totalCourtCost: Math.round(totalCourtCost * 100) / 100,
+    totalShuttleCost: Math.round(totalShuttleCost * 100) / 100,
+    grandTotalCost: Math.round(grandTotalCost * 100) / 100,
     costPerSession: Math.round(costPerSession * 100) / 100,
     racketUsage,
     stringPerformance,

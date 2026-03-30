@@ -38,6 +38,7 @@ type RacketWithRelations = {
   stiffness: string;
   gripSize: string;
   purchaseDate: Date | null;
+  purchasePrice: number | null;
   photoUrl: string | null;
   notes: string | null;
   isPrimary: boolean;
@@ -62,6 +63,7 @@ const emptyForm = {
   stiffness: "Stiff",
   gripSize: "G5 (3.25\")",
   purchaseDate: "",
+  purchasePrice: "",
   notes: "",
 };
 
@@ -99,6 +101,7 @@ export function RacketsClient({
       purchaseDate: r.purchaseDate
         ? new Date(r.purchaseDate).toISOString().split("T")[0]
         : "",
+      purchasePrice: r.purchasePrice != null ? r.purchasePrice.toString() : "",
       notes: r.notes || "",
     });
     setShowDialog(true);
@@ -108,10 +111,14 @@ export function RacketsClient({
     e.preventDefault();
     setLoading(true);
     try {
+      const data = {
+        ...form,
+        purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : undefined,
+      };
       if (editingId) {
-        await updateRacket(editingId, form);
+        await updateRacket(editingId, data);
       } else {
-        await createRacket(form);
+        await createRacket(data);
       }
       setShowDialog(false);
       setForm(emptyForm);
@@ -237,6 +244,12 @@ export function RacketsClient({
                         10
                     ) / 10}
                   </div>
+                  {r.purchasePrice != null && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Purchased:</span>{" "}
+                      ${r.purchasePrice.toFixed(0)}
+                    </div>
+                  )}
                 </div>
                 {r.notes && (
                   <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
@@ -370,16 +383,32 @@ export function RacketsClient({
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="purchaseDate">Purchase Date (optional)</Label>
-              <Input
-                id="purchaseDate"
-                type="date"
-                value={form.purchaseDate}
-                onChange={(e) =>
-                  setForm({ ...form, purchaseDate: e.target.value })
-                }
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="purchaseDate">Purchase Date (optional)</Label>
+                <Input
+                  id="purchaseDate"
+                  type="date"
+                  value={form.purchaseDate}
+                  onChange={(e) =>
+                    setForm({ ...form, purchaseDate: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purchasePrice">Purchase Price (optional)</Label>
+                <Input
+                  id="purchasePrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.purchasePrice}
+                  onChange={(e) =>
+                    setForm({ ...form, purchasePrice: e.target.value })
+                  }
+                  placeholder="e.g. 150"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notes (optional)</Label>

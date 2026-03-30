@@ -51,6 +51,7 @@ model User {
   playSessions  PlaySession[]
   stringings    StringingRecord[]
   playerProfile PlayerProfile?
+  shuttles      Shuttle[]
 }
 
 model VerificationToken {
@@ -73,8 +74,9 @@ model Racket {
   balancePoint String
   stiffness    String
   gripSize     String
-  purchaseDate DateTime?
-  photoUrl     String?
+  purchaseDate  DateTime?
+  purchasePrice Float?
+  photoUrl      String?
   notes        String?
   isPrimary    Boolean  @default(false)
   isArchived   Boolean  @default(false)
@@ -118,6 +120,7 @@ model PlaySession {
   controlRating    Int?
   powerRating      Int?
   comfortRating    Int?
+  courtCost        Float?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
@@ -142,4 +145,22 @@ model StringingRecord {
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// ─── Shuttle ─────────────────────────────────────────────────────
+
+model Shuttle {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand        String
+  model        String?
+  type         String    @default("Feather")
+  speed        String?
+  quantity     Int?
+  price        Float?
+  purchaseDate DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }

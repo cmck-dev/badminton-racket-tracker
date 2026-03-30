@@ -14,6 +14,7 @@ import {
   X,
   ChevronLeft,
   LogOut,
+  Feather,
 } from "lucide-react";
 import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/rackets", label: "Rackets", icon: Swords },
   { href: "/sessions", label: "Sessions", icon: CalendarDays },
   { href: "/stringing", label: "Stringing", icon: Wrench },
+  { href: "/shuttles", label: "Shuttles", icon: Feather },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/profile", label: "Profile", icon: User },
 ];

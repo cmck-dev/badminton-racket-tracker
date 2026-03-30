@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, TrendingUp, Wrench, DollarSign, BarChart3, Clock } from "lucide-react";
+import { AlertTriangle, TrendingUp, Wrench, DollarSign, BarChart3, Clock, Feather, Swords } from "lucide-react";
 
 const COLORS = ["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
@@ -27,6 +27,10 @@ type AnalyticsData = {
   totalRackets: number;
   totalStringings: number;
   totalStringingCost: number;
+  totalRacketCost: number;
+  totalCourtCost: number;
+  totalShuttleCost: number;
+  grandTotalCost: number;
   costPerSession: number;
   racketUsage: { id: string; name: string; sessionCount: number; totalHours: number }[];
   stringPerformance: { name: string; count: number; avgLifespan: number | null }[];
@@ -104,6 +108,49 @@ export function AnalyticsClient({ data }: { data: AnalyticsData }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Cost Breakdown */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-green-600" />
+            Total Investment
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-3xl font-bold mb-4">${data.grandTotalCost.toFixed(0)}</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex items-center gap-2">
+              <Swords className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Rackets</p>
+                <p className="text-sm font-medium">${data.totalRacketCost.toFixed(0)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Stringing</p>
+                <p className="text-sm font-medium">${data.totalStringingCost.toFixed(0)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Court</p>
+                <p className="text-sm font-medium">${data.totalCourtCost.toFixed(0)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Feather className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Shuttles</p>
+                <p className="text-sm font-medium">${data.totalShuttleCost.toFixed(0)}</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {!hasData && (
         <Card>

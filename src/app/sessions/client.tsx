@@ -29,6 +29,7 @@ type SessionWithRacket = {
   controlRating: number | null;
   powerRating: number | null;
   comfortRating: number | null;
+  courtCost: number | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -105,6 +106,7 @@ export function SessionsClient({
     controlRating: 3,
     powerRating: 3,
     comfortRating: 3,
+    courtCost: "",
   };
 
   const [showDialog, setShowDialog] = useState(
@@ -137,6 +139,7 @@ export function SessionsClient({
       controlRating: s.controlRating || 3,
       powerRating: s.powerRating || 3,
       comfortRating: s.comfortRating || 3,
+      courtCost: s.courtCost != null ? s.courtCost.toString() : "",
     });
     setShowDialog(true);
   }
@@ -154,6 +157,7 @@ export function SessionsClient({
         controlRating: form.controlRating,
         powerRating: form.powerRating,
         comfortRating: form.comfortRating,
+        courtCost: form.courtCost ? parseFloat(form.courtCost) : undefined,
       };
       if (editingId) {
         await updateSession(editingId, data);
@@ -255,6 +259,11 @@ export function SessionsClient({
                             day: "numeric",
                           })}
                         </span>
+                        {s.courtCost != null && s.courtCost > 0 && (
+                          <span className="text-sm text-muted-foreground">
+                            Court: ${s.courtCost.toFixed(0)}
+                          </span>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <Button
@@ -394,6 +403,18 @@ export function SessionsClient({
                   setForm({ ...form, performanceNotes: e.target.value })
                 }
                 placeholder="How did it feel? Any observations..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="courtCost">Court Cost (optional)</Label>
+              <Input
+                id="courtCost"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.courtCost}
+                onChange={(e) => setForm({ ...form, courtCost: e.target.value })}
+                placeholder="e.g. 10"
               />
             </div>
             <div className="flex justify-end gap-2">
