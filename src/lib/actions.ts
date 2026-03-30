@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requireAuth } from "@/lib/session";
+import { requireAuth, requireAdmin } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
 // ─── Racket Actions ─────────────────────────────────────────────
@@ -355,7 +355,8 @@ export async function deleteShuttle(id: string) {
 export async function getFeedback() {
   const user = await requireAuth();
   return prisma.feedback.findMany({
-    where: { userId: user.id },
+    where: user.isAdmin ? undefined : { userId: user.id },
+    include: { user: { select: { name: true, email: true, image: true } } },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -377,7 +378,7 @@ export async function createFeedback(data: {
 export async function updateFeedbackStatus(id: string, status: string) {
   const user = await requireAuth();
   await prisma.feedback.updateMany({
-    where: { id, userId: user.id },
+    where: user.isAdmin ? { id } : { id, userId: user.id },
     data: { status },
   });
   revalidatePath("/feedback");
@@ -385,8 +386,41 @@ export async function updateFeedbackStatus(id: string, status: string) {
 
 export async function deleteFeedback(id: string) {
   const user = await requireAuth();
-  await prisma.feedback.deleteMany({ where: { id, userId: user.id } });
+  await prisma.feedback.deleteMany({
+    where: user.isAdmin ? { id } : { id, userId: user.id },
+  });
   revalidatePath("/feedback");
+}
+
+// ─── Admin Actions ──────────────────────────────────────────────
+
+export async function getAllUsers() {
+  await requireAdmin();
+  return prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      createdAt: true,
+      _count: {
+        select: {
+          rackets: true,
+          playSessions: true,
+          stringings: true,
+          feedbacks: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function deleteUser(userId: string) {
+  await requireAdmin();
+  // Cascade deletes handle related records
+  await prisma.user.delete({ where: { id: userId } });
+  revalidatePath("/admin");
 }
 
 export async function getAnalyticsData() {

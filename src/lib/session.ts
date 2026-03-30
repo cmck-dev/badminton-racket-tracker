@@ -23,10 +23,23 @@ export async function requireAuth() {
     redirect("/auth/signin");
   }
 
+  const isAdmin =
+    !!process.env.ADMIN_EMAIL &&
+    session.user.email === process.env.ADMIN_EMAIL;
+
   return {
     id: session.user.id,
     name: session.user.name ?? null,
     email: session.user.email ?? null,
     image: session.user.image ?? null,
+    isAdmin,
   };
+}
+
+export async function requireAdmin() {
+  const user = await requireAuth();
+  if (!user.isAdmin) {
+    redirect("/");
+  }
+  return user;
 }

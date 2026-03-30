@@ -16,13 +16,14 @@ import {
   LogOut,
   Feather,
   MessageSquarePlus,
+  ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useCurrency } from "@/contexts/currency-context";
 import { CURRENCIES } from "@/lib/currency";
 
-const navItems = [
+const baseNavItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/rackets", label: "Rackets", icon: Swords },
   { href: "/sessions", label: "Sessions", icon: CalendarDays },
@@ -33,12 +34,16 @@ const navItems = [
   { href: "/feedback", label: "Feedback", icon: MessageSquarePlus },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
   const { currency, setCurrency } = useCurrency();
+
+  const navItems = isAdmin
+    ? [...baseNavItems, { href: "/admin", label: "Admin", icon: ShieldCheck }]
+    : baseNavItems;
 
   return (
     <>

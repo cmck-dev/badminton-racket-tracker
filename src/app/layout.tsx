@@ -4,6 +4,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { Providers } from "@/components/providers";
 import { getPlayerProfile } from "@/lib/actions";
+import { requireAuth } from "@/lib/session";
 import type { CurrencyCode } from "@/lib/currency";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -28,9 +29,12 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   let defaultCurrency: CurrencyCode = "USD";
+  let isAdmin = false;
   try {
     const profile = await getPlayerProfile();
     if (profile.currency) defaultCurrency = profile.currency as CurrencyCode;
+    const user = await requireAuth();
+    isAdmin = user.isAdmin;
   } catch {
     // not signed in yet — default to USD
   }
@@ -40,7 +44,7 @@ export default async function RootLayout({
       <body className={inter.className}>
         <Providers defaultCurrency={defaultCurrency}>
           <div className="flex min-h-screen">
-            <Sidebar />
+            <Sidebar isAdmin={isAdmin} />
             <main className="flex-1 min-w-0">
               <div className="container mx-auto px-4 py-6 md:px-8 md:py-8 pt-16 md:pt-8">
                 {children}

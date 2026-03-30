@@ -31,6 +31,7 @@ type FeedbackItem = {
   status: string;
   createdAt: Date;
   updatedAt: Date;
+  user?: { name: string | null; email: string | null; image: string | null } | null;
 };
 
 const TYPES = ["Bug", "Feature", "General"] as const;
@@ -76,8 +77,10 @@ const emptyForm = {
 
 export function FeedbackClient({
   initialFeedbacks,
+  isAdmin = false,
 }: {
   initialFeedbacks: FeedbackItem[];
+  isAdmin?: boolean;
 }) {
   const [feedbacks, setFeedbacks] = useState(initialFeedbacks);
   const [showDialog, setShowDialog] = useState(false);
@@ -247,6 +250,11 @@ export function FeedbackClient({
                             day: "numeric",
                             year: "numeric",
                           })}
+                          {isAdmin && f.user && (
+                            <span className="ml-2 text-muted-foreground/70">
+                              · {f.user.name ?? f.user.email ?? "Unknown user"}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
