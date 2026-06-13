@@ -33,9 +33,18 @@ type Shuttle = {
   updatedAt: Date;
 };
 
-const SHUTTLE_BRANDS = ["Yonex", "Victor", "Li-Ning", "RSL", "Mavis", "Carlton", "Other"];
+const SHUTTLE_BRANDS = ["Yonex", "Victor", "Li-Ning", "Oliver", "RSL", "Mavis", "Carlton", "Other"];
 const SHUTTLE_TYPES = ["Feather", "Nylon", "Hybrid"];
 const SHUTTLE_SPEEDS = ["75", "76", "77", "78", "Slow", "Medium", "Fast"];
+
+type ShuttlePreset = { label: string; brand: string; model: string; type: string; speed: string };
+const SHUTTLE_PRESETS: ShuttlePreset[] = [
+  { label: "Oliver Apex 100", brand: "Oliver",  model: "Apex 100",   type: "Feather", speed: "77" },
+  { label: "Yonex AS-50",     brand: "Yonex",   model: "AS-50",      type: "Feather", speed: "77" },
+  { label: "Victor Master Ace", brand: "Victor", model: "Master Ace", type: "Feather", speed: "77" },
+  { label: "Yonex Mavis 350", brand: "Yonex",   model: "Mavis 350",  type: "Nylon",   speed: "Medium" },
+  { label: "Li-Ning A+ 40",   brand: "Li-Ning", model: "A+ 40",      type: "Feather", speed: "77" },
+];
 
 const emptyForm = {
   brand: "Yonex",
@@ -81,6 +90,16 @@ export function ShuttlesClient({
       notes: s.notes || "",
     });
     setShowDialog(true);
+  }
+
+  function applyPreset(preset: ShuttlePreset) {
+    setForm((f) => ({
+      ...f,
+      brand: preset.brand,
+      model: preset.model,
+      type: preset.type,
+      speed: preset.speed,
+    }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -233,6 +252,24 @@ export function ShuttlesClient({
             <DialogTitle>{editingId ? "Edit Shuttle" : "Add Shuttle"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Quick-fill presets — only shown when creating */}
+            {!editingId && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Quick fill</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {SHUTTLE_PRESETS.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => applyPreset(p)}
+                      className="px-2.5 py-1 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="brand">Brand</Label>

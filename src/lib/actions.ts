@@ -17,6 +17,7 @@ export async function getRackets(includeArchived = false) {
     include: {
       playSessions: { select: { id: true, durationMinutes: true, date: true } },
       stringings: { orderBy: { date: "desc" }, take: 1 },
+      stringPreferences: { orderBy: { priority: "asc" } },
     },
     orderBy: [{ role: "asc" }, { createdAt: "desc" }],
   });
@@ -100,11 +101,51 @@ export async function updateRacket(
 
 export async function deleteRacket(id: string) {
   const user = await requireAuth();
-  await prisma.playSession.deleteMany({ where: { racketId: id, userId: user.id } });
+  // Sessions where this is the only linked racket are deleted; sessions with other rackets keep those links.
+  const soloSessions = await prisma.playSessionRacket.findMany({
+    where: { racketId: id, userId: user.id },
+    select: { sessionId: true },
+  });
+  const soloSessionIds = soloSessions.map((r) => r.sessionId);
+  for (const sessionId of soloSessionIds) {
+    const otherLinks = await prisma.playSessionRacket.count({
+      where: { sessionId, NOT: { racketId: id } },
+    });
+    if (otherLinks === 0) {
+      await prisma.playSession.deleteMany({ where: { id: sessionId, userId: user.id } });
+    }
+  }
   await prisma.stringingRecord.deleteMany({ where: { racketId: id, userId: user.id } });
   await prisma.racket.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/rackets");
   revalidatePath("/");
+}
+
+// ─── Racket String Preference Actions ───────────────────────────
+
+export async function upsertRacketStringPreference(
+  racketId: string,
+  priority: 1 | 2,
+  data: { stringBrand: string; stringModel: string; reason?: string }
+) {
+  const user = await requireAuth();
+  // Verify the racket belongs to this user
+  const racket = await prisma.racket.findFirst({ where: { id: racketId, userId: user.id } });
+  if (!racket) throw new Error("Racket not found.");
+  await prisma.racketStringPreference.upsert({
+    where: { racketId_priority: { racketId, priority } },
+    update: { stringBrand: data.stringBrand, stringModel: data.stringModel, reason: data.reason ?? null },
+    create: { racketId, userId: user.id, priority, stringBrand: data.stringBrand, stringModel: data.stringModel, reason: data.reason ?? null },
+  });
+  revalidatePath("/rackets");
+}
+
+export async function deleteRacketStringPreference(racketId: string, priority: 1 | 2) {
+  const user = await requireAuth();
+  await prisma.racketStringPreference.deleteMany({
+    where: { racketId, priority, userId: user.id },
+  });
+  revalidatePath("/rackets");
 }
 
 // ─── Play Session Actions ───────────────────────────────────────
@@ -113,7 +154,9 @@ export async function getSessions(limit?: number) {
   const user = await requireAuth();
   return prisma.playSession.findMany({
     where: { userId: user.id },
-    include: { racket: true },
+    include: {
+      rackets: { include: { racket: { select: { id: true, brand: true, model: true } } } },
+    },
     orderBy: { date: "desc" },
     take: limit,
   });
@@ -123,7 +166,7 @@ export async function createSession(data: {
   date: string;
   sessionType: string;
   durationMinutes: number;
-  racketId: string;
+  racketIds: string[];
   performanceNotes?: string;
   controlRating?: number;
   powerRating?: number;
@@ -131,8 +174,12 @@ export async function createSession(data: {
   courtCost?: number;
 }) {
   const user = await requireAuth();
+  const { racketIds, ...rest } = data;
   const session = await prisma.playSession.create({
-    data: { ...data, userId: user.id, date: new Date(data.date) },
+    data: { ...rest, userId: user.id, date: new Date(data.date) },
+  });
+  await prisma.playSessionRacket.createMany({
+    data: racketIds.map((racketId) => ({ sessionId: session.id, racketId, userId: user.id })),
   });
   revalidatePath("/sessions");
   revalidatePath("/rackets");
@@ -146,7 +193,7 @@ export async function updateSession(
     date?: string;
     sessionType?: string;
     durationMinutes?: number;
-    racketId?: string;
+    racketIds?: string[];
     performanceNotes?: string;
     controlRating?: number;
     powerRating?: number;
@@ -155,10 +202,17 @@ export async function updateSession(
   }
 ) {
   const user = await requireAuth();
+  const { racketIds, ...rest } = data;
   await prisma.playSession.updateMany({
     where: { id, userId: user.id },
-    data: { ...data, date: data.date ? new Date(data.date) : undefined },
+    data: { ...rest, date: rest.date ? new Date(rest.date) : undefined },
   });
+  if (racketIds) {
+    await prisma.playSessionRacket.deleteMany({ where: { sessionId: id, userId: user.id } });
+    await prisma.playSessionRacket.createMany({
+      data: racketIds.map((racketId) => ({ sessionId: id, racketId, userId: user.id })),
+    });
+  }
   revalidatePath("/sessions");
   revalidatePath("/");
 }
@@ -195,7 +249,7 @@ export async function createRecurringSessions(
   sessionData: {
     sessionType: string;
     durationMinutes: number;
-    racketId: string;
+    racketIds: string[];
     performanceNotes?: string;
     controlRating?: number;
     powerRating?: number;
@@ -263,7 +317,6 @@ export async function createRecurringSessions(
       date,
       sessionType: sessionData.sessionType,
       durationMinutes: sessionData.durationMinutes,
-      racketId: sessionData.racketId,
       performanceNotes: sessionData.performanceNotes ?? null,
       controlRating: sessionData.controlRating ?? null,
       powerRating: sessionData.powerRating ?? null,
@@ -273,7 +326,18 @@ export async function createRecurringSessions(
     };
   });
 
+  // createMany doesn't support nested relations; insert sessions then links separately
   await prisma.playSession.createMany({ data: records });
+  const created = await prisma.playSession.findMany({
+    where: { recurringGroupId: groupId, userId: user.id },
+    select: { id: true },
+  });
+  const links = created.flatMap((s) =>
+    sessionData.racketIds.map((racketId) => ({ sessionId: s.id, racketId, userId: user.id }))
+  );
+  if (links.length > 0) {
+    await prisma.playSessionRacket.createMany({ data: links, skipDuplicates: true });
+  }
   revalidatePath("/sessions");
   revalidatePath("/rackets");
   revalidatePath("/");
@@ -285,8 +349,25 @@ export async function getLastSession() {
   return prisma.playSession.findFirst({
     where: { userId: user.id },
     orderBy: { date: "desc" },
-    include: { racket: true },
+    include: {
+      rackets: { include: { racket: { select: { id: true, brand: true, model: true } } } },
+    },
   });
+}
+
+// One-shot backfill: copies existing racketId values into PlaySessionRacket.
+// Safe to run multiple times (skipDuplicates). Call once after deployment.
+export async function backfillSessionRackets() {
+  await requireAdmin();
+  const sessions = await prisma.playSession.findMany({
+    where: { racketId: { not: null } },
+    select: { id: true, racketId: true, userId: true },
+  });
+  const rows = sessions
+    .filter((s) => s.racketId !== null)
+    .map((s) => ({ sessionId: s.id, racketId: s.racketId!, userId: s.userId }));
+  const result = await prisma.playSessionRacket.createMany({ data: rows, skipDuplicates: true });
+  return { migrated: result.count };
 }
 
 // ─── Stringing Actions ──────────────────────────────────────────
@@ -540,11 +621,13 @@ export async function getAnalyticsData() {
   const [rackets, sessions, stringings, shuttles, profile] = await Promise.all([
     prisma.racket.findMany({
       where: { userId: user.id },
-      include: { playSessions: true, stringings: true },
+      include: {
+        sessionLinks: { include: { session: { select: { durationMinutes: true, date: true } } } },
+        stringings: true,
+      },
     }),
     prisma.playSession.findMany({
       where: { userId: user.id },
-      include: { racket: true },
       orderBy: { date: "asc" },
     }),
     prisma.stringingRecord.findMany({
@@ -556,14 +639,14 @@ export async function getAnalyticsData() {
     getPlayerProfile(),
   ]);
 
-  // Racket usage
+  // Racket usage — via join table
   const racketUsage = rackets.map((r) => ({
     id: r.id,
     name: `${r.brand} ${r.model}`,
-    sessionCount: r.playSessions.length,
+    sessionCount: r.sessionLinks.length,
     totalHours:
       Math.round(
-        (r.playSessions.reduce((s, x) => s + x.durationMinutes, 0) / 60) * 10
+        (r.sessionLinks.reduce((s, x) => s + x.session.durationMinutes, 0) / 60) * 10
       ) / 10,
   }));
   racketUsage.sort((a, b) => b.sessionCount - a.sessionCount);
@@ -621,14 +704,14 @@ export async function getAnalyticsData() {
     });
   }
 
-  // Restring recommendations
+  // Restring recommendations — via join table
   const restringRecommendations = rackets
     .filter((r) => !r.isArchived)
     .map((r) => {
       const lastStringing = r.stringings.sort((a, b) => b.date.getTime() - a.date.getTime())[0];
       const sessionsSinceStringing = lastStringing
-        ? r.playSessions.filter((s) => s.date > lastStringing.date).length
-        : r.playSessions.length;
+        ? r.sessionLinks.filter((l) => l.session.date > lastStringing.date).length
+        : r.sessionLinks.length;
       return {
         racketName: `${r.brand} ${r.model}`,
         sessionsSinceStringing,

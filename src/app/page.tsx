@@ -175,7 +175,7 @@ export default async function DashboardPage() {
                     <div className="flex items-center justify-between text-sm py-1 hover:bg-accent rounded px-1 transition-colors">
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="text-xs">{s.sessionType}</Badge>
-                        <span>{s.racket.brand} {s.racket.model}</span>
+                        <span>{s.rackets[0]?.racket.brand} {s.rackets[0]?.racket.model}{s.rackets.length > 1 ? ` +${s.rackets.length - 1}` : ""}</span>
                       </div>
                       <span className="text-muted-foreground">{s.durationMinutes}min</span>
                     </div>

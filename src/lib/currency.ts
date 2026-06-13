@@ -6,7 +6,7 @@ export const CURRENCIES: { code: CurrencyCode; label: string; symbol: string }[]
   { code: "EUR", label: "Euro (€)", symbol: "€" },
 ];
 
-// Approximate fixed rates relative to USD. Data is entered/stored in USD.
+// Kept for potential future use (e.g. displaying cross-currency totals).
 const RATES: Record<CurrencyCode, number> = {
   USD: 1,
   INR: 83.5,
@@ -17,12 +17,12 @@ export function convertFromUSD(amountUSD: number, to: CurrencyCode): number {
   return amountUSD * RATES[to];
 }
 
-export function formatCurrency(amountUSD: number, currency: CurrencyCode): string {
-  const converted = convertFromUSD(amountUSD, currency);
+// Costs are stored as-entered in the user's profile currency.
+// No conversion applied — just format with the correct symbol.
+export function formatCurrency(amount: number, currency: CurrencyCode): string {
   const info = CURRENCIES.find((c) => c.code === currency)!;
   if (currency === "INR") {
-    // Indian numbering: no decimal for whole numbers, use commas
-    return `${info.symbol}${Math.round(converted).toLocaleString("en-IN")}`;
+    return `${info.symbol}${Math.round(amount).toLocaleString("en-IN")}`;
   }
-  return `${info.symbol}${converted.toFixed(converted < 10 ? 2 : 0)}`;
+  return `${info.symbol}${amount.toFixed(amount < 10 ? 2 : 0)}`;
 }

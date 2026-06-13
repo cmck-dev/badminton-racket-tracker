@@ -45,14 +45,16 @@ model User {
   image         String?
   createdAt     DateTime  @default(now())
 
-  accounts      Account[]
-  sessions      Session[]
-  rackets       Racket[]
-  playSessions  PlaySession[]
-  stringings    StringingRecord[]
-  playerProfile PlayerProfile?
-  shuttles      Shuttle[]
-  feedbacks     Feedback[]
+  accounts          Account[]
+  sessions          Session[]
+  rackets           Racket[]
+  playSessions      PlaySession[]
+  sessionRackets    PlaySessionRacket[]
+  stringings        StringingRecord[]
+  playerProfile     PlayerProfile?
+  shuttles          Shuttle[]
+  feedbacks         Feedback[]
+  stringPreferences RacketStringPreference[]
 }
 
 model VerificationToken {
@@ -84,8 +86,28 @@ model Racket {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  playSessions PlaySession[]
-  stringings   StringingRecord[]
+  playSessions      PlaySession[]
+  sessionLinks      PlaySessionRacket[]
+  stringings        StringingRecord[]
+  stringPreferences RacketStringPreference[]
+}
+
+// ─── Per-racket string preferences ──────────────────────────────
+
+model RacketStringPreference {
+  id          String  @id @default(cuid())
+  racketId    String
+  racket      Racket  @relation(fields: [racketId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  priority    Int     // 1 = first choice, 2 = second choice
+  stringBrand String
+  stringModel String
+  reason      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([racketId, priority])
 }
 
 // ─── Player Profile ─────────────────────────────────────────────
@@ -116,8 +138,8 @@ model PlaySession {
   date             DateTime @default(now())
   sessionType      String
   durationMinutes  Int
-  racketId         String
-  racket           Racket   @relation(fields: [racketId], references: [id])
+  racketId         String?
+  racket           Racket?  @relation(fields: [racketId], references: [id])
   performanceNotes String?
   controlRating    Int?
   powerRating      Int?
@@ -126,6 +148,21 @@ model PlaySession {
   recurringGroupId String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+
+  rackets PlaySessionRacket[]
+}
+
+// ─── Play Session ↔ Racket join table ───────────────────────────
+
+model PlaySessionRacket {
+  sessionId String
+  racketId  String
+  userId    String
+  session   PlaySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  racket    Racket      @relation(fields: [racketId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, racketId])
 }
 
 // ─── Stringing Record ───────────────────────────────────────────

@@ -24,14 +24,18 @@ import {
 } from "@/lib/actions";
 import { Plus, Pencil, Trash2, Star, RefreshCw } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
+import { cn } from "@/lib/utils";
 
-type SessionWithRacket = {
+type RacketLink = {
+  racket: { id: string; brand: string; model: string };
+};
+
+type SessionWithRackets = {
   id: string;
   date: Date;
   sessionType: string;
   durationMinutes: number;
-  racketId: string;
-  racket: { id: string; brand: string; model: string };
+  rackets: RacketLink[];
   performanceNotes: string | null;
   controlRating: number | null;
   powerRating: number | null;
@@ -69,17 +73,10 @@ function RatingInput({
       <Label className="text-xs">{label}</Label>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onChange(n)}
-            className="p-1"
-          >
+          <button key={n} type="button" onClick={() => onChange(n)} className="p-1">
             <Star
               className={`h-4 w-4 ${
-                n <= value
-                  ? "fill-yellow-400 text-yellow-400"
-                  : "text-gray-300"
+                n <= value ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
               }`}
             />
           </button>
@@ -89,12 +86,7 @@ function RatingInput({
   );
 }
 
-// Counts how many dates in [rangeStart, rangeEnd) fall on the given days of week
-function countRecurringDates(
-  daysOfWeek: number[],
-  rangeStart: Date,
-  rangeEnd: Date
-): number {
+function countRecurringDates(daysOfWeek: number[], rangeStart: Date, rangeEnd: Date): number {
   if (!daysOfWeek.length) return 0;
   let count = 0;
   const cursor = new Date(rangeStart);
@@ -111,25 +103,27 @@ export function SessionsClient({
   rackets,
   lastSession,
 }: {
-  initialSessions: SessionWithRacket[];
+  initialSessions: SessionWithRackets[];
   rackets: Racket[];
-  lastSession: SessionWithRacket | null;
+  lastSession: SessionWithRackets | null;
 }) {
   const { fmt } = useCurrency();
   const searchParams = useSearchParams();
   const now = new Date();
 
-  const defaultRacket =
-    lastSession?.racketId ||
-    rackets.find((r) => r.role === "Primary")?.id ||
-    rackets[0]?.id ||
-    "";
+  const defaultRacketIds =
+    lastSession?.rackets.map((r) => r.racket.id) ??
+    (rackets.find((r) => r.role === "Primary")?.id
+      ? [rackets.find((r) => r.role === "Primary")!.id]
+      : rackets[0]?.id
+      ? [rackets[0].id]
+      : []);
 
   const emptyForm = {
     date: now.toISOString().slice(0, 16),
     sessionType: lastSession?.sessionType || "Practice",
     durationMinutes: lastSession?.durationMinutes?.toString() || "60",
-    racketId: defaultRacket,
+    racketIds: defaultRacketIds,
     performanceNotes: "",
     controlRating: 3,
     powerRating: 3,
@@ -146,17 +140,14 @@ export function SessionsClient({
     endDate: "",
   };
 
-  const [showDialog, setShowDialog] = useState(
-    searchParams.get("new") === "true"
-  );
+  const [showDialog, setShowDialog] = useState(searchParams.get("new") === "true");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [recurrence, setRecurrence] = useState(emptyRecurrence);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
 
-  // Series-delete dialog state
-  const [deleteTarget, setDeleteTarget] = useState<SessionWithRacket | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SessionWithRackets | null>(null);
   const [deleteGroupCount, setDeleteGroupCount] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -165,7 +156,6 @@ export function SessionsClient({
       ? initialSessions
       : initialSessions.filter((s) => s.sessionType === filter);
 
-  // Live preview count for recurrence
   const previewCount = useMemo(() => {
     if (!recurrence.enabled || !recurrence.daysOfWeek.length) return 0;
     const year = recurrence.year ?? now.getFullYear();
@@ -194,6 +184,15 @@ export function SessionsClient({
     }));
   }
 
+  function toggleRacket(id: string) {
+    setForm((f) => ({
+      ...f,
+      racketIds: f.racketIds.includes(id)
+        ? f.racketIds.filter((r) => r !== id)
+        : [...f.racketIds, id],
+    }));
+  }
+
   function openCreate() {
     setEditingId(null);
     setForm(emptyForm);
@@ -201,31 +200,35 @@ export function SessionsClient({
     setShowDialog(true);
   }
 
-  function openEdit(s: SessionWithRacket) {
+  function openEdit(s: SessionWithRackets) {
     setEditingId(s.id);
     setForm({
       date: new Date(s.date).toISOString().slice(0, 16),
       sessionType: s.sessionType,
       durationMinutes: s.durationMinutes.toString(),
-      racketId: s.racketId,
+      racketIds: s.rackets.map((r) => r.racket.id),
       performanceNotes: s.performanceNotes || "",
       controlRating: s.controlRating || 3,
       powerRating: s.powerRating || 3,
       comfortRating: s.comfortRating || 3,
       courtCost: s.courtCost != null ? s.courtCost.toString() : "",
     });
-    setRecurrence(emptyRecurrence); // recurrence not supported in edit
+    setRecurrence(emptyRecurrence);
     setShowDialog(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.racketIds.length) {
+      alert("Select at least one racket.");
+      return;
+    }
     setLoading(true);
     try {
       const baseData = {
         sessionType: form.sessionType,
         durationMinutes: parseInt(form.durationMinutes),
-        racketId: form.racketId,
+        racketIds: form.racketIds,
         performanceNotes: form.performanceNotes || undefined,
         controlRating: form.controlRating,
         powerRating: form.powerRating,
@@ -236,17 +239,9 @@ export function SessionsClient({
       if (editingId) {
         await updateSession(editingId, { ...baseData, date: form.date });
       } else if (recurrence.enabled) {
-        if (!recurrence.daysOfWeek.length) {
-          alert("Select at least one day of the week.");
-          return;
-        }
-        if (previewCount > 365) {
-          alert(`Too many sessions (${previewCount}). Max is 365. Narrow the range.`);
-          return;
-        }
-        const startTime = form.date.includes("T")
-          ? form.date.split("T")[1].slice(0, 5)
-          : "09:00";
+        if (!recurrence.daysOfWeek.length) { alert("Select at least one day."); return; }
+        if (previewCount > 365) { alert(`Too many sessions (${previewCount}). Max 365.`); return; }
+        const startTime = form.date.includes("T") ? form.date.split("T")[1].slice(0, 5) : "09:00";
         await createRecurringSessions(
           { ...baseData, startTime },
           {
@@ -269,11 +264,10 @@ export function SessionsClient({
     }
   }
 
-  async function handleDeleteClick(s: SessionWithRacket) {
+  async function handleDeleteClick(s: SessionWithRackets) {
     if (s.recurringGroupId) {
       setDeleteTarget(s);
       setDeleteGroupCount(null);
-      // Fetch count in background
       getRecurringGroupCount(s.recurringGroupId).then((n) => setDeleteGroupCount(n));
     } else {
       if (!confirm("Delete this session?")) return;
@@ -297,9 +291,7 @@ export function SessionsClient({
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
-          <p className="text-muted-foreground mt-1">
-            Log and review your play sessions
-          </p>
+          <p className="text-muted-foreground mt-1">Log and review your play sessions</p>
         </div>
         <Button onClick={openCreate} disabled={rackets.length === 0}>
           <Plus className="h-4 w-4 mr-2" />
@@ -310,24 +302,16 @@ export function SessionsClient({
       {rackets.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">
-              Add a racket first before logging sessions.
-            </p>
+            <p className="text-muted-foreground">Add a racket first before logging sessions.</p>
           </CardContent>
         </Card>
       )}
 
       {rackets.length > 0 && (
         <>
-          {/* Filter */}
           <div className="flex gap-2">
             {["all", ...SESSION_TYPES].map((t) => (
-              <Button
-                key={t}
-                variant={filter === t ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilter(t)}
-              >
+              <Button key={t} variant={filter === t ? "default" : "outline"} size="sm" onClick={() => setFilter(t)}>
                 {t === "all" ? "All" : t}
               </Button>
             ))}
@@ -337,10 +321,7 @@ export function SessionsClient({
             <Card>
               <CardContent className="py-8 text-center">
                 <p className="text-muted-foreground mb-4">No sessions logged yet</p>
-                <Button onClick={openCreate}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Log your first session
-                </Button>
+                <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Log your first session</Button>
               </CardContent>
             </Card>
           ) : (
@@ -350,15 +331,7 @@ export function SessionsClient({
                   <CardContent className="py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <Badge
-                          variant={
-                            s.sessionType === "Match"
-                              ? "default"
-                              : s.sessionType === "Training"
-                              ? "secondary"
-                              : "outline"
-                          }
-                        >
+                        <Badge variant={s.sessionType === "Match" ? "default" : s.sessionType === "Training" ? "secondary" : "outline"}>
                           {s.sessionType}
                         </Badge>
                         {s.recurringGroupId && (
@@ -367,60 +340,34 @@ export function SessionsClient({
                           </span>
                         )}
                         <span className="font-medium">
-                          {s.racket.brand} {s.racket.model}
+                          {s.rackets.map((r) => `${r.racket.brand} ${r.racket.model}`).join(", ")}
                         </span>
+                        <span className="text-sm text-muted-foreground">{s.durationMinutes} min</span>
                         <span className="text-sm text-muted-foreground">
-                          {s.durationMinutes} min
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(s.date).toLocaleDateString("en-US", {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {new Date(s.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                         </span>
                         {s.courtCost != null && s.courtCost > 0 && (
-                          <span className="text-sm text-muted-foreground">
-                            Court: {fmt(s.courtCost)}
-                          </span>
+                          <span className="text-sm text-muted-foreground">Court: {fmt(s.courtCost)}</span>
                         )}
                       </div>
                       <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openEdit(s)}
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDeleteClick(s)}
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteClick(s)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
                     {(s.controlRating || s.powerRating || s.comfortRating) && (
                       <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                        {s.controlRating && (
-                          <span>Control: {"★".repeat(s.controlRating)}{"☆".repeat(5 - s.controlRating)}</span>
-                        )}
-                        {s.powerRating && (
-                          <span>Power: {"★".repeat(s.powerRating)}{"☆".repeat(5 - s.powerRating)}</span>
-                        )}
-                        {s.comfortRating && (
-                          <span>Comfort: {"★".repeat(s.comfortRating)}{"☆".repeat(5 - s.comfortRating)}</span>
-                        )}
+                        {s.controlRating && <span>Control: {"★".repeat(s.controlRating)}{"☆".repeat(5 - s.controlRating)}</span>}
+                        {s.powerRating && <span>Power: {"★".repeat(s.powerRating)}{"☆".repeat(5 - s.powerRating)}</span>}
+                        {s.comfortRating && <span>Comfort: {"★".repeat(s.comfortRating)}{"☆".repeat(5 - s.comfortRating)}</span>}
                       </div>
                     )}
                     {s.performanceNotes && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {s.performanceNotes}
-                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">{s.performanceNotes}</p>
                     )}
                   </CardContent>
                 </Card>
@@ -434,270 +381,163 @@ export function SessionsClient({
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingId ? "Edit Session" : "Log Session"}
-            </DialogTitle>
+            <DialogTitle>{editingId ? "Edit Session" : "Log Session"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="date">Date & Time</Label>
-                <Input
-                  id="date"
-                  type="datetime-local"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  required
-                />
+                <Input id="date" type="datetime-local" value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">Type</Label>
-                <Select
-                  id="type"
-                  value={form.sessionType}
-                  onChange={(e) =>
-                    setForm({ ...form, sessionType: e.target.value })
-                  }
-                >
-                  {SESSION_TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
+                <Select id="type" value={form.sessionType}
+                  onChange={(e) => setForm({ ...form, sessionType: e.target.value })}>
+                  {SESSION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duration (minutes)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="1"
-                  max="480"
-                  value={form.durationMinutes}
-                  onChange={(e) =>
-                    setForm({ ...form, durationMinutes: e.target.value })
-                  }
-                  required
-                />
+
+            {/* Racket multi-select */}
+            <div className="space-y-2">
+              <Label>Rackets <span className="text-muted-foreground text-xs">(select one or more)</span></Label>
+              <div className="flex flex-wrap gap-2">
+                {rackets.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => toggleRacket(r.id)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-md border text-sm font-medium transition-colors",
+                      form.racketIds.includes(r.id)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background border-input hover:bg-accent"
+                    )}
+                  >
+                    {r.brand} {r.model}
+                    {r.role === "Primary" && <span className="ml-1 text-xs opacity-60">(P)</span>}
+                  </button>
+                ))}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="racket">Racket</Label>
-                <Select
-                  id="racket"
-                  value={form.racketId}
-                  onChange={(e) =>
-                    setForm({ ...form, racketId: e.target.value })
-                  }
-                >
-                  {rackets.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.brand} {r.model} {r.role === "Primary" ? "(Primary)" : ""}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+              {form.racketIds.length === 0 && (
+                <p className="text-xs text-destructive">Select at least one racket.</p>
+              )}
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="duration">Duration (minutes)</Label>
+              <Input id="duration" type="number" min="1" max="480" value={form.durationMinutes}
+                onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })} required />
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
-              <RatingInput
-                label="Control"
-                value={form.controlRating}
-                onChange={(v) => setForm({ ...form, controlRating: v })}
-              />
-              <RatingInput
-                label="Power"
-                value={form.powerRating}
-                onChange={(v) => setForm({ ...form, powerRating: v })}
-              />
-              <RatingInput
-                label="Comfort"
-                value={form.comfortRating}
-                onChange={(v) => setForm({ ...form, comfortRating: v })}
-              />
+              <RatingInput label="Control" value={form.controlRating} onChange={(v) => setForm({ ...form, controlRating: v })} />
+              <RatingInput label="Power" value={form.powerRating} onChange={(v) => setForm({ ...form, powerRating: v })} />
+              <RatingInput label="Comfort" value={form.comfortRating} onChange={(v) => setForm({ ...form, comfortRating: v })} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                value={form.performanceNotes}
-                onChange={(e) =>
-                  setForm({ ...form, performanceNotes: e.target.value })
-                }
-                placeholder="How did it feel? Any observations..."
-              />
+              <Textarea id="notes" value={form.performanceNotes}
+                onChange={(e) => setForm({ ...form, performanceNotes: e.target.value })}
+                placeholder="How did it feel? Any observations..." />
             </div>
             <div className="space-y-2">
               <Label htmlFor="courtCost">Court Cost (optional)</Label>
-              <Input
-                id="courtCost"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.courtCost}
-                onChange={(e) => setForm({ ...form, courtCost: e.target.value })}
-                placeholder="e.g. 10"
-              />
+              <Input id="courtCost" type="number" min="0" step="0.01" value={form.courtCost}
+                onChange={(e) => setForm({ ...form, courtCost: e.target.value })} placeholder="e.g. 10" />
             </div>
 
-            {/* Recurrence section — hidden when editing */}
+            {/* Recurrence — hidden when editing */}
             {!editingId && (
               <div className="border rounded-lg p-4 space-y-4">
                 <div className="flex items-center gap-3">
-                  <input
-                    id="repeat"
-                    type="checkbox"
-                    checked={recurrence.enabled}
-                    onChange={(e) =>
-                      setRecurrence((r) => ({ ...r, enabled: e.target.checked }))
-                    }
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="repeat" className="cursor-pointer font-medium">
-                    Repeat this session
-                  </Label>
+                  <input id="repeat" type="checkbox" checked={recurrence.enabled}
+                    onChange={(e) => setRecurrence((r) => ({ ...r, enabled: e.target.checked }))}
+                    className="h-4 w-4" />
+                  <Label htmlFor="repeat" className="cursor-pointer font-medium">Repeat this session</Label>
                 </div>
-
                 {recurrence.enabled && (
                   <div className="space-y-4">
-                    {/* Days of week */}
                     <div className="space-y-2">
                       <Label className="text-xs">Days of week</Label>
                       <div className="flex gap-1">
                         {DAYS.map((label, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => toggleDay(idx)}
-                            className={`w-9 h-9 rounded-md text-xs font-medium transition-colors ${
+                          <button key={idx} type="button" onClick={() => toggleDay(idx)}
+                            className={cn(
+                              "w-9 h-9 rounded-md text-xs font-medium transition-colors",
                               recurrence.daysOfWeek.includes(idx)
                                 ? "bg-primary text-primary-foreground"
                                 : "border border-input bg-background hover:bg-accent"
-                            }`}
-                          >
+                            )}>
                             {label}
                           </button>
                         ))}
                       </div>
                     </div>
-
-                    {/* Period */}
                     <div className="space-y-2">
                       <Label className="text-xs">Period</Label>
                       <div className="flex gap-1">
                         {(["month", "year", "custom"] as const).map((p) => (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() =>
-                              setRecurrence((r) => ({ ...r, period: p }))
-                            }
-                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                          <button key={p} type="button"
+                            onClick={() => setRecurrence((r) => ({ ...r, period: p }))}
+                            className={cn(
+                              "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
                               recurrence.period === p
                                 ? "bg-primary text-primary-foreground"
                                 : "border border-input bg-background hover:bg-accent"
-                            }`}
-                          >
-                            {p === "month"
-                              ? "This month"
-                              : p === "year"
-                              ? "This year"
-                              : "Custom"}
+                            )}>
+                            {p === "month" ? "This month" : p === "year" ? "This year" : "Custom"}
                           </button>
                         ))}
                       </div>
                     </div>
-
-                    {/* Month/year selectors */}
                     {recurrence.period === "month" && (
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Month</Label>
-                          <Select
-                            value={recurrence.month.toString()}
-                            onChange={(e) =>
-                              setRecurrence((r) => ({
-                                ...r,
-                                month: parseInt(e.target.value),
-                              }))
-                            }
-                          >
-                            {[
-                              "January","February","March","April","May","June",
-                              "July","August","September","October","November","December",
-                            ].map((m, i) => (
+                          <Select value={recurrence.month.toString()}
+                            onChange={(e) => setRecurrence((r) => ({ ...r, month: parseInt(e.target.value) }))}>
+                            {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
                               <option key={i + 1} value={i + 1}>{m}</option>
                             ))}
                           </Select>
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Year</Label>
-                          <Input
-                            type="number"
-                            min={now.getFullYear()}
-                            max={now.getFullYear() + 5}
+                          <Input type="number" min={now.getFullYear()} max={now.getFullYear() + 5}
                             value={recurrence.year}
-                            onChange={(e) =>
-                              setRecurrence((r) => ({
-                                ...r,
-                                year: parseInt(e.target.value),
-                              }))
-                            }
-                          />
+                            onChange={(e) => setRecurrence((r) => ({ ...r, year: parseInt(e.target.value) }))} />
                         </div>
                       </div>
                     )}
-
                     {recurrence.period === "year" && (
                       <div className="space-y-1">
                         <Label className="text-xs">Year</Label>
-                        <Input
-                          type="number"
-                          min={now.getFullYear()}
-                          max={now.getFullYear() + 5}
-                          value={recurrence.year}
-                          onChange={(e) =>
-                            setRecurrence((r) => ({
-                              ...r,
-                              year: parseInt(e.target.value),
-                            }))
-                          }
-                          className="w-32"
-                        />
+                        <Input type="number" min={now.getFullYear()} max={now.getFullYear() + 5}
+                          value={recurrence.year} className="w-32"
+                          onChange={(e) => setRecurrence((r) => ({ ...r, year: parseInt(e.target.value) }))} />
                       </div>
                     )}
-
                     {recurrence.period === "custom" && (
                       <div className="space-y-1">
                         <Label className="text-xs">End date (inclusive)</Label>
-                        <Input
-                          type="date"
-                          value={recurrence.endDate}
+                        <Input type="date" value={recurrence.endDate}
                           min={now.toISOString().slice(0, 10)}
-                          onChange={(e) =>
-                            setRecurrence((r) => ({
-                              ...r,
-                              endDate: e.target.value,
-                            }))
-                          }
-                          required={recurrence.period === "custom"}
-                        />
+                          onChange={(e) => setRecurrence((r) => ({ ...r, endDate: e.target.value }))}
+                          required={recurrence.period === "custom"} />
                       </div>
                     )}
-
-                    {/* Preview */}
                     {previewCount > 0 && previewCount <= 365 && (
                       <p className="text-xs text-muted-foreground">
                         Will create <span className="font-semibold text-foreground">{previewCount}</span> sessions
                       </p>
                     )}
                     {previewCount > 365 && (
-                      <p className="text-xs text-destructive">
-                        Too many sessions ({previewCount}). Maximum is 365. Narrow the range.
-                      </p>
+                      <p className="text-xs text-destructive">Too many sessions ({previewCount}). Maximum is 365.</p>
                     )}
                     {recurrence.daysOfWeek.length === 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Select at least one day above.
-                      </p>
+                      <p className="text-xs text-muted-foreground">Select at least one day above.</p>
                     )}
                   </div>
                 )}
@@ -705,27 +545,10 @@ export function SessionsClient({
             )}
 
             <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  loading ||
-                  (recurrence.enabled && (previewCount === 0 || previewCount > 365))
-                }
-              >
-                {loading
-                  ? "Saving..."
-                  : editingId
-                  ? "Update"
-                  : recurrence.enabled
-                  ? `Create ${previewCount > 0 ? previewCount + " " : ""}Sessions`
-                  : "Log Session"}
+              <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
+              <Button type="submit"
+                disabled={loading || form.racketIds.length === 0 || (recurrence.enabled && (previewCount === 0 || previewCount > 365))}>
+                {loading ? "Saving..." : editingId ? "Update" : recurrence.enabled ? `Create ${previewCount > 0 ? previewCount + " " : ""}Sessions` : "Log Session"}
               </Button>
             </div>
           </form>
@@ -736,39 +559,18 @@ export function SessionsClient({
       {deleteTarget && (
         <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete session</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              This session is part of a recurring series.
-            </p>
+            <DialogHeader><DialogTitle>Delete session</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">This session is part of a recurring series.</p>
             <div className="flex flex-col gap-2 mt-2">
-              <Button
-                variant="outline"
-                onClick={() => handleConfirmDelete(false)}
-                disabled={deleteLoading}
-              >
+              <Button variant="outline" onClick={() => handleConfirmDelete(false)} disabled={deleteLoading}>
                 Delete this session only
               </Button>
-              <Button
-                variant="destructive"
-                onClick={() => handleConfirmDelete(true)}
-                disabled={deleteLoading}
-              >
-                Delete all{" "}
-                {deleteGroupCount !== null ? `${deleteGroupCount} ` : ""}
-                sessions in this series
+              <Button variant="destructive" onClick={() => handleConfirmDelete(true)} disabled={deleteLoading}>
+                Delete all {deleteGroupCount !== null ? `${deleteGroupCount} ` : ""}sessions in this series
               </Button>
             </div>
             <div className="flex justify-end mt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleteLoading}
-              >
-                Cancel
-              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>Cancel</Button>
             </div>
           </DialogContent>
         </Dialog>

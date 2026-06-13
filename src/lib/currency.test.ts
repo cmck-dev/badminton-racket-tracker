@@ -102,17 +102,17 @@ describe("formatCurrency", () => {
       expect(formatCurrency(1, "INR")).toMatch(/^₹/);
     });
 
-    it("formats 1 USD as ₹84 (rounded)", () => {
-      expect(formatCurrency(1, "INR")).toBe("₹84");
+    it("formats 1 INR as ₹1 (no conversion)", () => {
+      expect(formatCurrency(1, "INR")).toBe("₹1");
     });
 
-    it("formats 100 USD to ₹8,350 with Indian comma notation", () => {
-      expect(formatCurrency(100, "INR")).toBe("₹8,350");
+    it("formats 100 INR with Indian comma notation", () => {
+      expect(formatCurrency(100, "INR")).toBe("₹100");
     });
 
     it("formats large amounts with Indian numbering (lakhs)", () => {
-      // $1000 → ₹83,500
-      expect(formatCurrency(1000, "INR")).toBe("₹83,500");
+      // 83500 INR stored as-entered
+      expect(formatCurrency(83500, "INR")).toBe("₹83,500");
     });
 
     it("formats zero INR as ₹0", () => {
@@ -125,14 +125,14 @@ describe("formatCurrency", () => {
       expect(formatCurrency(1, "EUR")).toMatch(/^€/);
     });
 
-    it("formats small EUR amounts with 2 decimals", () => {
-      // $1 → €0.92 (< 10, so 2 decimals)
-      expect(formatCurrency(1, "EUR")).toBe("€0.92");
+    it("formats small EUR amounts with 2 decimals (no conversion)", () => {
+      // 1 EUR stored as-entered → €1.00
+      expect(formatCurrency(1, "EUR")).toBe("€1.00");
     });
 
-    it("formats 50 USD to €46", () => {
-      // 50 × 0.92 = 46 (≥ 10, so no decimals)
-      expect(formatCurrency(50, "EUR")).toBe("€46");
+    it("formats 50 EUR without decimals (no conversion)", () => {
+      // 50 EUR stored as-entered → €50
+      expect(formatCurrency(50, "EUR")).toBe("€50");
     });
 
     it("formats zero EUR as €0.00 (zero is < 10, uses 2 decimals)", () => {

@@ -19,6 +19,8 @@ import {
   createRacket,
   updateRacket,
   deleteRacket,
+  upsertRacketStringPreference,
+  deleteRacketStringPreference,
 } from "@/lib/actions";
 import {
   Plus,
@@ -27,9 +29,18 @@ import {
   Pencil,
   Trash2,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 import { cn } from "@/lib/utils";
+
+type StringPreference = {
+  id: string;
+  priority: number;
+  stringBrand: string;
+  stringModel: string;
+  reason: string | null;
+};
 
 type RacketWithRelations = {
   id: string;
@@ -49,6 +60,7 @@ type RacketWithRelations = {
   updatedAt: Date;
   playSessions: { id: string; durationMinutes: number; date: Date }[];
   stringings: { id: string; date: Date }[];
+  stringPreferences: StringPreference[];
 };
 
 const BRANDS = ["Yonex", "Victor", "Li-Ning", "Apacs", "Babolat", "Carlton", "Ashaway", "Other"];
@@ -59,6 +71,97 @@ const GRIPS = ["G4 (3.5\")", "G5 (3.25\")", "G6 (3.0\")"];
 
 export const ROLES = ["Primary", "Secondary", "Backup 1", "Backup 2"] as const;
 export type RacketRole = typeof ROLES[number];
+
+function StringPreferencesTable({ racketId, preferences }: { racketId: string; preferences: StringPreference[] }) {
+  const [rows, setRows] = useState<{ brand: string; model: string; reason: string }[]>([
+    { brand: preferences.find((p) => p.priority === 1)?.stringBrand ?? "", model: preferences.find((p) => p.priority === 1)?.stringModel ?? "", reason: preferences.find((p) => p.priority === 1)?.reason ?? "" },
+    { brand: preferences.find((p) => p.priority === 2)?.stringBrand ?? "", model: preferences.find((p) => p.priority === 2)?.stringModel ?? "", reason: preferences.find((p) => p.priority === 2)?.reason ?? "" },
+  ]);
+
+  async function saveRow(priority: 1 | 2) {
+    const row = rows[priority - 1];
+    if (!row.brand.trim() && !row.model.trim()) {
+      await deleteRacketStringPreference(racketId, priority);
+      return;
+    }
+    await upsertRacketStringPreference(racketId, priority, {
+      stringBrand: row.brand.trim(),
+      stringModel: row.model.trim(),
+      reason: row.reason.trim() || undefined,
+    });
+  }
+
+  async function clearRow(priority: 1 | 2) {
+    const updated = [...rows];
+    updated[priority - 1] = { brand: "", model: "", reason: "" };
+    setRows(updated);
+    await deleteRacketStringPreference(racketId, priority);
+  }
+
+  function update(priority: 1 | 2, field: "brand" | "model" | "reason", value: string) {
+    const updated = [...rows];
+    updated[priority - 1] = { ...updated[priority - 1], [field]: value };
+    setRows(updated);
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t">
+      <p className="text-xs font-medium text-muted-foreground mb-2">String preferences</p>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-muted-foreground">
+            <th className="text-left pb-1 w-12" />
+            <th className="text-left pb-1">Brand</th>
+            <th className="text-left pb-1">Model</th>
+            <th className="text-left pb-1">Reason</th>
+            <th className="w-5" />
+          </tr>
+        </thead>
+        <tbody>
+          {([1, 2] as const).map((priority) => (
+            <tr key={priority}>
+              <td className="py-0.5 pr-2 text-muted-foreground whitespace-nowrap">{priority === 1 ? "1st" : "2nd"}</td>
+              <td className="py-0.5 pr-1">
+                <input
+                  className="w-full bg-transparent border-b border-transparent hover:border-input focus:border-primary outline-none py-0.5"
+                  value={rows[priority - 1].brand}
+                  placeholder="Brand…"
+                  onChange={(e) => update(priority, "brand", e.target.value)}
+                  onBlur={() => saveRow(priority)}
+                />
+              </td>
+              <td className="py-0.5 pr-1">
+                <input
+                  className="w-full bg-transparent border-b border-transparent hover:border-input focus:border-primary outline-none py-0.5"
+                  value={rows[priority - 1].model}
+                  placeholder="Model…"
+                  onChange={(e) => update(priority, "model", e.target.value)}
+                  onBlur={() => saveRow(priority)}
+                />
+              </td>
+              <td className="py-0.5 pr-1">
+                <input
+                  className="w-full bg-transparent border-b border-transparent hover:border-input focus:border-primary outline-none py-0.5"
+                  value={rows[priority - 1].reason}
+                  placeholder="Reason (optional)…"
+                  onChange={(e) => update(priority, "reason", e.target.value)}
+                  onBlur={() => saveRow(priority)}
+                />
+              </td>
+              <td className="py-0.5">
+                {(rows[priority - 1].brand || rows[priority - 1].model) && (
+                  <button type="button" onClick={() => clearRow(priority)} className="text-muted-foreground hover:text-destructive transition-colors">
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 const ROLE_STYLES: Record<RacketRole, string> = {
   "Primary":  "bg-yellow-100 text-yellow-800 border-yellow-300",
@@ -322,6 +425,7 @@ export function RacketsClient({
                 {r.notes && (
                   <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{r.notes}</p>
                 )}
+                <StringPreferencesTable racketId={r.id} preferences={r.stringPreferences} />
                 <div className="flex gap-1 mt-3 pt-3 border-t">
                   <Button
                     variant="ghost"
