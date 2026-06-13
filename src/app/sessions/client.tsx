@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -15,8 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { createSession, updateSession, deleteSession } from "@/lib/actions";
-import { Plus, Pencil, Trash2, Star } from "lucide-react";
+import {
+  createSession,
+  updateSession,
+  deleteSession,
+  getRecurringGroupCount,
+  createRecurringSessions,
+} from "@/lib/actions";
+import { Plus, Pencil, Trash2, Star, RefreshCw } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 
 type SessionWithRacket = {
@@ -31,6 +37,7 @@ type SessionWithRacket = {
   powerRating: number | null;
   comfortRating: number | null;
   courtCost: number | null;
+  recurringGroupId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -46,6 +53,7 @@ type Racket = {
 };
 
 const SESSION_TYPES = ["Match", "Practice", "Training"];
+const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 function RatingInput({
   label,
@@ -81,6 +89,23 @@ function RatingInput({
   );
 }
 
+// Counts how many dates in [rangeStart, rangeEnd) fall on the given days of week
+function countRecurringDates(
+  daysOfWeek: number[],
+  rangeStart: Date,
+  rangeEnd: Date
+): number {
+  if (!daysOfWeek.length) return 0;
+  let count = 0;
+  const cursor = new Date(rangeStart);
+  cursor.setHours(0, 0, 0, 0);
+  while (cursor < rangeEnd) {
+    if (daysOfWeek.includes(cursor.getDay())) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
 export function SessionsClient({
   initialSessions,
   rackets,
@@ -93,6 +118,7 @@ export function SessionsClient({
   const { fmt } = useCurrency();
   const searchParams = useSearchParams();
   const now = new Date();
+
   const defaultRacket =
     lastSession?.racketId ||
     rackets.find((r) => r.role === "Primary")?.id ||
@@ -111,22 +137,67 @@ export function SessionsClient({
     courtCost: "",
   };
 
+  const emptyRecurrence = {
+    enabled: false,
+    daysOfWeek: [] as number[],
+    period: "month" as "month" | "year" | "custom",
+    month: now.getMonth() + 1,
+    year: now.getFullYear(),
+    endDate: "",
+  };
+
   const [showDialog, setShowDialog] = useState(
     searchParams.get("new") === "true"
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [recurrence, setRecurrence] = useState(emptyRecurrence);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
+
+  // Series-delete dialog state
+  const [deleteTarget, setDeleteTarget] = useState<SessionWithRacket | null>(null);
+  const [deleteGroupCount, setDeleteGroupCount] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const filteredSessions =
     filter === "all"
       ? initialSessions
       : initialSessions.filter((s) => s.sessionType === filter);
 
+  // Live preview count for recurrence
+  const previewCount = useMemo(() => {
+    if (!recurrence.enabled || !recurrence.daysOfWeek.length) return 0;
+    const year = recurrence.year ?? now.getFullYear();
+    let start: Date, end: Date;
+    if (recurrence.period === "month") {
+      const month = (recurrence.month ?? now.getMonth() + 1) - 1;
+      start = new Date(year, month, 1);
+      end = new Date(year, month + 1, 1);
+    } else if (recurrence.period === "year") {
+      start = new Date(year, 0, 1);
+      end = new Date(year + 1, 0, 1);
+    } else {
+      start = new Date(); start.setHours(0, 0, 0, 0);
+      end = recurrence.endDate ? new Date(recurrence.endDate) : start;
+      end.setHours(23, 59, 59, 999);
+    }
+    return countRecurringDates(recurrence.daysOfWeek, start, end);
+  }, [recurrence, now]);
+
+  function toggleDay(day: number) {
+    setRecurrence((r) => ({
+      ...r,
+      daysOfWeek: r.daysOfWeek.includes(day)
+        ? r.daysOfWeek.filter((d) => d !== day)
+        : [...r.daysOfWeek, day],
+    }));
+  }
+
   function openCreate() {
     setEditingId(null);
     setForm(emptyForm);
+    setRecurrence(emptyRecurrence);
     setShowDialog(true);
   }
 
@@ -143,6 +214,7 @@ export function SessionsClient({
       comfortRating: s.comfortRating || 3,
       courtCost: s.courtCost != null ? s.courtCost.toString() : "",
     });
+    setRecurrence(emptyRecurrence); // recurrence not supported in edit
     setShowDialog(true);
   }
 
@@ -150,8 +222,7 @@ export function SessionsClient({
     e.preventDefault();
     setLoading(true);
     try {
-      const data = {
-        date: form.date,
+      const baseData = {
         sessionType: form.sessionType,
         durationMinutes: parseInt(form.durationMinutes),
         racketId: form.racketId,
@@ -161,22 +232,64 @@ export function SessionsClient({
         comfortRating: form.comfortRating,
         courtCost: form.courtCost ? parseFloat(form.courtCost) : undefined,
       };
+
       if (editingId) {
-        await updateSession(editingId, data);
+        await updateSession(editingId, { ...baseData, date: form.date });
+      } else if (recurrence.enabled) {
+        if (!recurrence.daysOfWeek.length) {
+          alert("Select at least one day of the week.");
+          return;
+        }
+        if (previewCount > 365) {
+          alert(`Too many sessions (${previewCount}). Max is 365. Narrow the range.`);
+          return;
+        }
+        const startTime = form.date.includes("T")
+          ? form.date.split("T")[1].slice(0, 5)
+          : "09:00";
+        await createRecurringSessions(
+          { ...baseData, startTime },
+          {
+            daysOfWeek: recurrence.daysOfWeek,
+            period: recurrence.period,
+            month: recurrence.period === "month" ? recurrence.month : undefined,
+            year: recurrence.year,
+            endDate: recurrence.period === "custom" ? recurrence.endDate : undefined,
+          }
+        );
       } else {
-        await createSession(data);
+        await createSession({ ...baseData, date: form.date });
       }
       setShowDialog(false);
       setForm(emptyForm);
+      setRecurrence(emptyRecurrence);
       setEditingId(null);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this session?")) return;
-    await deleteSession(id);
+  async function handleDeleteClick(s: SessionWithRacket) {
+    if (s.recurringGroupId) {
+      setDeleteTarget(s);
+      setDeleteGroupCount(null);
+      // Fetch count in background
+      getRecurringGroupCount(s.recurringGroupId).then((n) => setDeleteGroupCount(n));
+    } else {
+      if (!confirm("Delete this session?")) return;
+      await deleteSession(s.id);
+    }
+  }
+
+  async function handleConfirmDelete(deleteGroup: boolean) {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await deleteSession(deleteTarget.id, deleteGroup);
+      setDeleteTarget(null);
+    } finally {
+      setDeleteLoading(false);
+    }
   }
 
   return (
@@ -248,6 +361,11 @@ export function SessionsClient({
                         >
                           {s.sessionType}
                         </Badge>
+                        {s.recurringGroupId && (
+                          <span title="Recurring session" className="text-muted-foreground">
+                            <RefreshCw className="h-3 w-3 inline" />
+                          </span>
+                        )}
                         <span className="font-medium">
                           {s.racket.brand} {s.racket.model}
                         </span>
@@ -280,7 +398,7 @@ export function SessionsClient({
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive"
-                          onClick={() => handleDelete(s.id)}
+                          onClick={() => handleDeleteClick(s)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -314,7 +432,7 @@ export function SessionsClient({
 
       {/* Create/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingId ? "Edit Session" : "Log Session"}
@@ -419,6 +537,173 @@ export function SessionsClient({
                 placeholder="e.g. 10"
               />
             </div>
+
+            {/* Recurrence section — hidden when editing */}
+            {!editingId && (
+              <div className="border rounded-lg p-4 space-y-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    id="repeat"
+                    type="checkbox"
+                    checked={recurrence.enabled}
+                    onChange={(e) =>
+                      setRecurrence((r) => ({ ...r, enabled: e.target.checked }))
+                    }
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="repeat" className="cursor-pointer font-medium">
+                    Repeat this session
+                  </Label>
+                </div>
+
+                {recurrence.enabled && (
+                  <div className="space-y-4">
+                    {/* Days of week */}
+                    <div className="space-y-2">
+                      <Label className="text-xs">Days of week</Label>
+                      <div className="flex gap-1">
+                        {DAYS.map((label, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => toggleDay(idx)}
+                            className={`w-9 h-9 rounded-md text-xs font-medium transition-colors ${
+                              recurrence.daysOfWeek.includes(idx)
+                                ? "bg-primary text-primary-foreground"
+                                : "border border-input bg-background hover:bg-accent"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Period */}
+                    <div className="space-y-2">
+                      <Label className="text-xs">Period</Label>
+                      <div className="flex gap-1">
+                        {(["month", "year", "custom"] as const).map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() =>
+                              setRecurrence((r) => ({ ...r, period: p }))
+                            }
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                              recurrence.period === p
+                                ? "bg-primary text-primary-foreground"
+                                : "border border-input bg-background hover:bg-accent"
+                            }`}
+                          >
+                            {p === "month"
+                              ? "This month"
+                              : p === "year"
+                              ? "This year"
+                              : "Custom"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Month/year selectors */}
+                    {recurrence.period === "month" && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Month</Label>
+                          <Select
+                            value={recurrence.month.toString()}
+                            onChange={(e) =>
+                              setRecurrence((r) => ({
+                                ...r,
+                                month: parseInt(e.target.value),
+                              }))
+                            }
+                          >
+                            {[
+                              "January","February","March","April","May","June",
+                              "July","August","September","October","November","December",
+                            ].map((m, i) => (
+                              <option key={i + 1} value={i + 1}>{m}</option>
+                            ))}
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Year</Label>
+                          <Input
+                            type="number"
+                            min={now.getFullYear()}
+                            max={now.getFullYear() + 5}
+                            value={recurrence.year}
+                            onChange={(e) =>
+                              setRecurrence((r) => ({
+                                ...r,
+                                year: parseInt(e.target.value),
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {recurrence.period === "year" && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Year</Label>
+                        <Input
+                          type="number"
+                          min={now.getFullYear()}
+                          max={now.getFullYear() + 5}
+                          value={recurrence.year}
+                          onChange={(e) =>
+                            setRecurrence((r) => ({
+                              ...r,
+                              year: parseInt(e.target.value),
+                            }))
+                          }
+                          className="w-32"
+                        />
+                      </div>
+                    )}
+
+                    {recurrence.period === "custom" && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">End date (inclusive)</Label>
+                        <Input
+                          type="date"
+                          value={recurrence.endDate}
+                          min={now.toISOString().slice(0, 10)}
+                          onChange={(e) =>
+                            setRecurrence((r) => ({
+                              ...r,
+                              endDate: e.target.value,
+                            }))
+                          }
+                          required={recurrence.period === "custom"}
+                        />
+                      </div>
+                    )}
+
+                    {/* Preview */}
+                    {previewCount > 0 && previewCount <= 365 && (
+                      <p className="text-xs text-muted-foreground">
+                        Will create <span className="font-semibold text-foreground">{previewCount}</span> sessions
+                      </p>
+                    )}
+                    {previewCount > 365 && (
+                      <p className="text-xs text-destructive">
+                        Too many sessions ({previewCount}). Maximum is 365. Narrow the range.
+                      </p>
+                    )}
+                    {recurrence.daysOfWeek.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Select at least one day above.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
@@ -427,17 +712,67 @@ export function SessionsClient({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button
+                type="submit"
+                disabled={
+                  loading ||
+                  (recurrence.enabled && (previewCount === 0 || previewCount > 365))
+                }
+              >
                 {loading
                   ? "Saving..."
                   : editingId
                   ? "Update"
+                  : recurrence.enabled
+                  ? `Create ${previewCount > 0 ? previewCount + " " : ""}Sessions`
                   : "Log Session"}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Series-delete dialog */}
+      {deleteTarget && (
+        <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete session</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              This session is part of a recurring series.
+            </p>
+            <div className="flex flex-col gap-2 mt-2">
+              <Button
+                variant="outline"
+                onClick={() => handleConfirmDelete(false)}
+                disabled={deleteLoading}
+              >
+                Delete this session only
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleConfirmDelete(true)}
+                disabled={deleteLoading}
+              >
+                Delete all{" "}
+                {deleteGroupCount !== null ? `${deleteGroupCount} ` : ""}
+                sessions in this series
+              </Button>
+            </div>
+            <div className="flex justify-end mt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

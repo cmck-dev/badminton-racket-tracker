@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requireAuth, requireAdmin } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { generateRecurringDates } from "@/lib/recurrence";
 
 // ─── Racket Actions ─────────────────────────────────────────────
 
@@ -162,11 +163,121 @@ export async function updateSession(
   revalidatePath("/");
 }
 
-export async function deleteSession(id: string) {
+export async function deleteSession(id: string, deleteGroup = false) {
   const user = await requireAuth();
+  if (deleteGroup) {
+    const session = await prisma.playSession.findFirst({
+      where: { id, userId: user.id },
+      select: { recurringGroupId: true },
+    });
+    if (session?.recurringGroupId) {
+      await prisma.playSession.deleteMany({
+        where: { recurringGroupId: session.recurringGroupId, userId: user.id },
+      });
+      revalidatePath("/sessions");
+      revalidatePath("/");
+      return;
+    }
+  }
   await prisma.playSession.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/sessions");
   revalidatePath("/");
+}
+
+export async function getRecurringGroupCount(groupId: string) {
+  const user = await requireAuth();
+  return prisma.playSession.count({
+    where: { recurringGroupId: groupId, userId: user.id },
+  });
+}
+
+export async function createRecurringSessions(
+  sessionData: {
+    sessionType: string;
+    durationMinutes: number;
+    racketId: string;
+    performanceNotes?: string;
+    controlRating?: number;
+    powerRating?: number;
+    comfortRating?: number;
+    courtCost?: number;
+    startTime: string; // HH:mm — applied to every generated date
+  },
+  recurrence: {
+    daysOfWeek: number[]; // 0=Sun … 6=Sat
+    period: "month" | "year" | "custom";
+    month?: number; // 1-12; defaults to current month when period='month'
+    year?: number;  // defaults to current year
+    endDate?: string; // ISO date string; used when period='custom'
+  }
+) {
+  if (!recurrence.daysOfWeek.length) {
+    throw new Error("At least one day of week is required.");
+  }
+
+  const user = await requireAuth();
+  const now = new Date();
+  const year = recurrence.year ?? now.getFullYear();
+
+  let rangeStart: Date;
+  let rangeEnd: Date;
+
+  if (recurrence.period === "month") {
+    const month = (recurrence.month ?? now.getMonth() + 1) - 1; // 0-indexed
+    rangeStart = new Date(year, month, 1);
+    rangeEnd = new Date(year, month + 1, 1);
+  } else if (recurrence.period === "year") {
+    rangeStart = new Date(year, 0, 1);
+    rangeEnd = new Date(year + 1, 0, 1);
+  } else {
+    // custom
+    if (!recurrence.endDate) throw new Error("endDate is required for custom period.");
+    rangeStart = new Date();
+    rangeStart.setHours(0, 0, 0, 0);
+    const end = new Date(recurrence.endDate);
+    end.setHours(23, 59, 59, 999);
+    rangeEnd = end;
+  }
+
+  const dates = generateRecurringDates(recurrence.daysOfWeek, rangeStart, rangeEnd);
+
+  const MAX_SESSIONS = 365;
+  if (dates.length > MAX_SESSIONS) {
+    throw new Error(
+      `This recurrence would create ${dates.length} sessions. Maximum allowed is ${MAX_SESSIONS}. Narrow the date range or reduce the days selected.`
+    );
+  }
+  if (dates.length === 0) {
+    throw new Error("No matching dates found in the selected range.");
+  }
+
+  // Apply the user's chosen time to each date
+  const [hh, mm] = sessionData.startTime.split(":").map(Number);
+  const groupId = crypto.randomUUID();
+
+  const records = dates.map((d) => {
+    const date = new Date(d);
+    date.setHours(hh, mm, 0, 0);
+    return {
+      userId: user.id,
+      date,
+      sessionType: sessionData.sessionType,
+      durationMinutes: sessionData.durationMinutes,
+      racketId: sessionData.racketId,
+      performanceNotes: sessionData.performanceNotes ?? null,
+      controlRating: sessionData.controlRating ?? null,
+      powerRating: sessionData.powerRating ?? null,
+      comfortRating: sessionData.comfortRating ?? null,
+      courtCost: sessionData.courtCost ?? null,
+      recurringGroupId: groupId,
+    };
+  });
+
+  await prisma.playSession.createMany({ data: records });
+  revalidatePath("/sessions");
+  revalidatePath("/rackets");
+  revalidatePath("/");
+  return { count: records.length, groupId };
 }
 
 export async function getLastSession() {
