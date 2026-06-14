@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -39,6 +39,7 @@ type StringPreference = {
   priority: number;
   stringBrand: string;
   stringModel: string;
+  tension: number | null;
   reason: string | null;
 };
 
@@ -72,102 +73,11 @@ const GRIPS = ["G4 (3.5\")", "G5 (3.25\")", "G6 (3.0\")"];
 export const ROLES = ["Primary", "Secondary", "Backup 1", "Backup 2"] as const;
 export type RacketRole = typeof ROLES[number];
 
-function StringPreferencesTable({ racketId, preferences }: { racketId: string; preferences: StringPreference[] }) {
-  const [rows, setRows] = useState<{ brand: string; model: string; reason: string }[]>([
-    { brand: preferences.find((p) => p.priority === 1)?.stringBrand ?? "", model: preferences.find((p) => p.priority === 1)?.stringModel ?? "", reason: preferences.find((p) => p.priority === 1)?.reason ?? "" },
-    { brand: preferences.find((p) => p.priority === 2)?.stringBrand ?? "", model: preferences.find((p) => p.priority === 2)?.stringModel ?? "", reason: preferences.find((p) => p.priority === 2)?.reason ?? "" },
-  ]);
-
-  async function saveRow(priority: 1 | 2) {
-    const row = rows[priority - 1];
-    if (!row.brand.trim() && !row.model.trim()) {
-      await deleteRacketStringPreference(racketId, priority);
-      return;
-    }
-    await upsertRacketStringPreference(racketId, priority, {
-      stringBrand: row.brand.trim(),
-      stringModel: row.model.trim(),
-      reason: row.reason.trim() || undefined,
-    });
-  }
-
-  async function clearRow(priority: 1 | 2) {
-    const updated = [...rows];
-    updated[priority - 1] = { brand: "", model: "", reason: "" };
-    setRows(updated);
-    await deleteRacketStringPreference(racketId, priority);
-  }
-
-  function update(priority: 1 | 2, field: "brand" | "model" | "reason", value: string) {
-    const updated = [...rows];
-    updated[priority - 1] = { ...updated[priority - 1], [field]: value };
-    setRows(updated);
-  }
-
-  return (
-    <div className="mt-3 pt-3 border-t">
-      <p className="text-xs font-medium text-muted-foreground mb-2">String preferences</p>
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="text-muted-foreground">
-            <th className="text-left pb-1 w-12" />
-            <th className="text-left pb-1">Brand</th>
-            <th className="text-left pb-1">Model</th>
-            <th className="text-left pb-1">Reason</th>
-            <th className="w-5" />
-          </tr>
-        </thead>
-        <tbody>
-          {([1, 2] as const).map((priority) => (
-            <tr key={priority}>
-              <td className="py-0.5 pr-2 text-muted-foreground whitespace-nowrap">{priority === 1 ? "1st" : "2nd"}</td>
-              <td className="py-0.5 pr-1">
-                <input
-                  className="w-full bg-transparent border-b border-transparent hover:border-input focus:border-primary outline-none py-0.5"
-                  value={rows[priority - 1].brand}
-                  placeholder="Brand…"
-                  onChange={(e) => update(priority, "brand", e.target.value)}
-                  onBlur={() => saveRow(priority)}
-                />
-              </td>
-              <td className="py-0.5 pr-1">
-                <input
-                  className="w-full bg-transparent border-b border-transparent hover:border-input focus:border-primary outline-none py-0.5"
-                  value={rows[priority - 1].model}
-                  placeholder="Model…"
-                  onChange={(e) => update(priority, "model", e.target.value)}
-                  onBlur={() => saveRow(priority)}
-                />
-              </td>
-              <td className="py-0.5 pr-1">
-                <input
-                  className="w-full bg-transparent border-b border-transparent hover:border-input focus:border-primary outline-none py-0.5"
-                  value={rows[priority - 1].reason}
-                  placeholder="Reason (optional)…"
-                  onChange={(e) => update(priority, "reason", e.target.value)}
-                  onBlur={() => saveRow(priority)}
-                />
-              </td>
-              <td className="py-0.5">
-                {(rows[priority - 1].brand || rows[priority - 1].model) && (
-                  <button type="button" onClick={() => clearRow(priority)} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 const ROLE_STYLES: Record<RacketRole, string> = {
-  "Primary":  "bg-yellow-100 text-yellow-800 border-yellow-300",
+  "Primary":   "bg-yellow-100 text-yellow-800 border-yellow-300",
   "Secondary": "bg-blue-100 text-blue-800 border-blue-300",
-  "Backup 1": "bg-green-100 text-green-800 border-green-300",
-  "Backup 2": "bg-gray-100 text-gray-700 border-gray-300",
+  "Backup 1":  "bg-green-100 text-green-800 border-green-300",
+  "Backup 2":  "bg-gray-100 text-gray-700 border-gray-300",
 };
 
 const emptyForm = {
@@ -181,6 +91,10 @@ const emptyForm = {
   purchasePrice: "",
   notes: "",
 };
+
+function lbsToKg(lbs: number): string {
+  return (lbs * 0.453592).toFixed(1);
+}
 
 function RolePicker({ racket }: { racket: RacketWithRelations }) {
   const [open, setOpen] = useState(false);
@@ -205,12 +119,10 @@ function RolePicker({ racket }: { racket: RacketWithRelations }) {
         {racket.role ?? "Set role"}
         <ChevronDown className="h-3 w-3" />
       </button>
-
       {open && (
         <>
-          {/* backdrop */}
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-7 z-20 w-36 rounded-md border bg-popover shadow-md py-1">
+          <div className="absolute left-0 top-7 z-20 w-36 rounded-md border bg-popover shadow-md py-1">
             {ROLES.map((r) => (
               <button
                 key={r}
@@ -221,12 +133,7 @@ function RolePicker({ racket }: { racket: RacketWithRelations }) {
                   racket.role === r && "font-semibold"
                 )}
               >
-                <span
-                  className={cn(
-                    "inline-block w-2 h-2 rounded-full border",
-                    ROLE_STYLES[r]
-                  )}
-                />
+                <span className={cn("inline-block w-2 h-2 rounded-full border", ROLE_STYLES[r])} />
                 {r}
               </button>
             ))}
@@ -245,6 +152,178 @@ function RolePicker({ racket }: { racket: RacketWithRelations }) {
   );
 }
 
+// One row per string preference priority. Renders two <tr> elements as a fragment.
+function RacketRows({
+  racket: r,
+  fmt,
+  onEdit,
+  onDelete,
+  onToggleArchive,
+}: {
+  racket: RacketWithRelations;
+  fmt: (n: number) => string;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggleArchive: () => void;
+}) {
+  type PrefRow = { brand: string; model: string; tension: string; reason: string };
+
+  const [rows, setRows] = useState<[PrefRow, PrefRow]>([
+    {
+      brand:   r.stringPreferences.find((p) => p.priority === 1)?.stringBrand ?? "",
+      model:   r.stringPreferences.find((p) => p.priority === 1)?.stringModel ?? "",
+      tension: r.stringPreferences.find((p) => p.priority === 1)?.tension?.toString() ?? "",
+      reason:  r.stringPreferences.find((p) => p.priority === 1)?.reason ?? "",
+    },
+    {
+      brand:   r.stringPreferences.find((p) => p.priority === 2)?.stringBrand ?? "",
+      model:   r.stringPreferences.find((p) => p.priority === 2)?.stringModel ?? "",
+      tension: r.stringPreferences.find((p) => p.priority === 2)?.tension?.toString() ?? "",
+      reason:  r.stringPreferences.find((p) => p.priority === 2)?.reason ?? "",
+    },
+  ]);
+
+  function update(priority: 1 | 2, field: keyof PrefRow, value: string) {
+    setRows((prev) => {
+      const next: [PrefRow, PrefRow] = [{ ...prev[0] }, { ...prev[1] }];
+      next[priority - 1] = { ...next[priority - 1], [field]: value };
+      return next;
+    });
+  }
+
+  async function saveRow(priority: 1 | 2) {
+    const row = rows[priority - 1];
+    if (!row.brand.trim() && !row.model.trim()) {
+      await deleteRacketStringPreference(r.id, priority);
+      return;
+    }
+    const tensionNum = row.tension ? parseFloat(row.tension) : undefined;
+    await upsertRacketStringPreference(r.id, priority, {
+      stringBrand: row.brand.trim(),
+      stringModel: row.model.trim(),
+      tension: tensionNum && !isNaN(tensionNum) ? tensionNum : undefined,
+      reason: row.reason.trim() || undefined,
+    });
+  }
+
+  async function clearRow(priority: 1 | 2) {
+    setRows((prev) => {
+      const next: [PrefRow, PrefRow] = [{ ...prev[0] }, { ...prev[1] }];
+      next[priority - 1] = { brand: "", model: "", tension: "", reason: "" };
+      return next;
+    });
+    await deleteRacketStringPreference(r.id, priority);
+  }
+
+  function prefTds(priority: 1 | 2) {
+    const row = rows[priority - 1];
+    const tensionLbs = row.tension ? parseFloat(row.tension) : null;
+    const tensionKg = tensionLbs && !isNaN(tensionLbs) ? lbsToKg(tensionLbs) : null;
+    const hasData = row.brand || row.model;
+
+    return (
+      <>
+        <td className="px-3 py-1.5 text-xs text-muted-foreground border-l whitespace-nowrap">
+          {priority === 1 ? "1st" : "2nd"}
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            className="w-full min-w-[80px] bg-transparent border-b border-transparent hover:border-input focus:border-primary outline-none py-0.5 text-xs"
+            value={row.brand}
+            placeholder="Brand…"
+            onChange={(e) => update(priority, "brand", e.target.value)}
+            onBlur={() => saveRow(priority)}
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            className="w-full min-w-[80px] bg-transparent border-b border-transparent hover:border-input focus:border-primary outline-none py-0.5 text-xs"
+            value={row.model}
+            placeholder="Model…"
+            onChange={(e) => update(priority, "model", e.target.value)}
+            onBlur={() => saveRow(priority)}
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            type="number"
+            className="w-16 bg-transparent border-b border-transparent hover:border-input focus:border-primary outline-none py-0.5 text-xs"
+            value={row.tension}
+            placeholder="e.g. 26"
+            onChange={(e) => update(priority, "tension", e.target.value)}
+            onBlur={() => saveRow(priority)}
+          />
+        </td>
+        <td className="px-2 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
+          {tensionKg ? `${tensionKg} kg` : "—"}
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            className="w-full min-w-[100px] bg-transparent border-b border-transparent hover:border-input focus:border-primary outline-none py-0.5 text-xs"
+            value={row.reason}
+            placeholder="Reason…"
+            onChange={(e) => update(priority, "reason", e.target.value)}
+            onBlur={() => saveRow(priority)}
+          />
+        </td>
+        <td className="px-2 py-1.5 w-5">
+          {hasData && (
+            <button
+              type="button"
+              onClick={() => clearRow(priority)}
+              className="text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </td>
+      </>
+    );
+  }
+
+  const rowClass = cn("border-b border-border/40", r.isArchived && "opacity-50");
+
+  return (
+    <>
+      {/* Row 1 — racket cells span 2 rows */}
+      <tr className={rowClass}>
+        <td className="px-4 py-2 font-medium align-middle" rowSpan={2}>
+          <div>{r.brand} {r.model}</div>
+          {r.isArchived && <Badge variant="secondary" className="text-xs mt-1">Archived</Badge>}
+          {r.purchasePrice != null && (
+            <div className="text-xs text-muted-foreground mt-0.5">{fmt(r.purchasePrice)}</div>
+          )}
+        </td>
+        <td className="px-3 py-2 align-middle" rowSpan={2}>
+          <RolePicker racket={r} />
+        </td>
+        <td className="px-3 py-2 text-xs text-muted-foreground align-middle whitespace-nowrap" rowSpan={2}>{r.weightClass}</td>
+        <td className="px-3 py-2 text-xs text-muted-foreground align-middle whitespace-nowrap" rowSpan={2}>{r.balancePoint}</td>
+        <td className="px-3 py-2 text-xs text-muted-foreground align-middle whitespace-nowrap" rowSpan={2}>{r.stiffness}</td>
+        <td className="px-3 py-2 text-xs text-muted-foreground align-middle" rowSpan={2}>{r.playSessions.length}</td>
+        {prefTds(1)}
+        <td className="px-2 py-2 align-middle" rowSpan={2}>
+          <div className="flex gap-0.5">
+            <button onClick={onEdit} className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground">
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={onToggleArchive} className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground">
+              {r.isArchived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+            </button>
+            <button onClick={onDelete} className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-destructive">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </td>
+      </tr>
+      {/* Row 2 — only string pref cells (racket cells covered by rowSpan) */}
+      <tr className={cn(rowClass, "border-b-2")}>
+        {prefTds(2)}
+      </tr>
+    </>
+  );
+}
+
 export function RacketsClient({
   initialRackets,
 }: {
@@ -260,7 +339,6 @@ export function RacketsClient({
 
   const rackets = initialRackets.filter((r) => showArchived || !r.isArchived);
 
-  // Role summary bar
   const assigned = ROLES.map((role) => ({
     role,
     racket: initialRackets.find((r) => r.role === role),
@@ -281,9 +359,7 @@ export function RacketsClient({
       balancePoint: r.balancePoint,
       stiffness: r.stiffness,
       gripSize: r.gripSize,
-      purchaseDate: r.purchaseDate
-        ? new Date(r.purchaseDate).toISOString().split("T")[0]
-        : "",
+      purchaseDate: r.purchaseDate ? new Date(r.purchaseDate).toISOString().split("T")[0] : "",
       purchasePrice: r.purchasePrice != null ? r.purchasePrice.toString() : "",
       notes: r.notes || "",
     });
@@ -294,10 +370,7 @@ export function RacketsClient({
     e.preventDefault();
     setLoading(true);
     try {
-      const data = {
-        ...form,
-        purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : undefined,
-      };
+      const data = { ...form, purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : undefined };
       if (editingId) {
         await updateRacket(editingId, data);
       } else {
@@ -341,13 +414,7 @@ export function RacketsClient({
       {/* Role summary strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {assigned.map(({ role, racket: r }) => (
-          <div
-            key={role}
-            className={cn(
-              "rounded-lg border px-3 py-2 text-sm",
-              ROLE_STYLES[role]
-            )}
-          >
+          <div key={role} className={cn("rounded-lg border px-3 py-2 text-sm", ROLE_STYLES[role])}>
             <p className="font-semibold text-xs uppercase tracking-wide opacity-70">{role}</p>
             <p className="mt-0.5 font-medium truncate">
               {r ? `${r.brand} ${r.model}` : <span className="italic opacity-50">Unassigned</span>}
@@ -360,97 +427,43 @@ export function RacketsClient({
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground mb-4">No rackets yet</p>
-            <Button onClick={openCreate}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add your first racket
-            </Button>
+            <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Add your first racket</Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {rackets.map((r) => (
-            <Card key={r.id} className={r.isArchived ? "opacity-60" : ""}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0 flex-1 pr-2">
-                    <CardTitle className="text-lg truncate">
-                      {r.brand} {r.model}
-                    </CardTitle>
-                    <div className="flex gap-1.5 mt-1.5 flex-wrap items-center">
-                      <RolePicker racket={r} />
-                      {r.isArchived && <Badge variant="secondary">Archived</Badge>}
-                      <Badge variant="outline">{r.weightClass}</Badge>
-                      <Badge variant="outline">{r.stiffness}</Badge>
-                    </div>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openEdit(r)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Balance:</span>{" "}
-                    {r.balancePoint}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Grip:</span>{" "}
-                    {r.gripSize}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Sessions:</span>{" "}
-                    {r.playSessions.length}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Hours:</span>{" "}
-                    {Math.round(
-                      r.playSessions.reduce((s, x) => s + x.durationMinutes, 0) / 60 * 10
-                    ) / 10}
-                  </div>
-                  {r.purchasePrice != null && (
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">Purchased:</span>{" "}
-                      {fmt(r.purchasePrice)}
-                    </div>
-                  )}
-                </div>
-                {r.notes && (
-                  <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{r.notes}</p>
-                )}
-                <StringPreferencesTable racketId={r.id} preferences={r.stringPreferences} />
-                <div className="flex gap-1 mt-3 pt-3 border-t">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleArchive(r.id, r.isArchived)}
-                  >
-                    {r.isArchived ? (
-                      <><ArchiveRestore className="h-3 w-3 mr-1" />Restore</>
-                    ) : (
-                      <><Archive className="h-3 w-3 mr-1" />Archive</>
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(r.id)}
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="rounded-xl border bg-card overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b bg-muted/40 text-muted-foreground text-xs">
+                <th className="text-left px-4 py-3 font-medium">Racket</th>
+                <th className="text-left px-3 py-3 font-medium">Role</th>
+                <th className="text-left px-3 py-3 font-medium">Weight</th>
+                <th className="text-left px-3 py-3 font-medium">Balance</th>
+                <th className="text-left px-3 py-3 font-medium">Stiffness</th>
+                <th className="text-left px-3 py-3 font-medium">Sessions</th>
+                <th className="text-left px-3 py-3 font-medium border-l">Pref</th>
+                <th className="text-left px-3 py-3 font-medium">Brand</th>
+                <th className="text-left px-3 py-3 font-medium">Model</th>
+                <th className="text-left px-3 py-3 font-medium">lbs</th>
+                <th className="text-left px-3 py-3 font-medium">kg</th>
+                <th className="text-left px-3 py-3 font-medium">Reason</th>
+                <th className="px-3 py-3 w-5" />
+                <th className="px-3 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {rackets.map((r) => (
+                <RacketRows
+                  key={r.id}
+                  racket={r}
+                  fmt={fmt}
+                  onEdit={() => openEdit(r)}
+                  onDelete={() => handleDelete(r.id)}
+                  onToggleArchive={() => toggleArchive(r.id, r.isArchived)}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -464,45 +477,25 @@ export function RacketsClient({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="brand">Brand</Label>
-                <Select
-                  id="brand"
-                  value={form.brand}
-                  onChange={(e) => setForm({ ...form, brand: e.target.value })}
-                >
-                  {BRANDS.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
+                <Select id="brand" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })}>
+                  {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="model">Model</Label>
-                <Input
-                  id="model"
-                  value={form.model}
-                  onChange={(e) => setForm({ ...form, model: e.target.value })}
-                  placeholder="e.g. Astrox 100ZZ"
-                  required
-                />
+                <Input id="model" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="e.g. Astrox 100ZZ" required />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="weight">Weight</Label>
-                <Select
-                  id="weight"
-                  value={form.weightClass}
-                  onChange={(e) => setForm({ ...form, weightClass: e.target.value })}
-                >
+                <Select id="weight" value={form.weightClass} onChange={(e) => setForm({ ...form, weightClass: e.target.value })}>
                   {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="balance">Balance</Label>
-                <Select
-                  id="balance"
-                  value={form.balancePoint}
-                  onChange={(e) => setForm({ ...form, balancePoint: e.target.value })}
-                >
+                <Select id="balance" value={form.balancePoint} onChange={(e) => setForm({ ...form, balancePoint: e.target.value })}>
                   {BALANCE.map((b) => <option key={b} value={b}>{b}</option>)}
                 </Select>
               </div>
@@ -510,21 +503,13 @@ export function RacketsClient({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="stiffness">Stiffness</Label>
-                <Select
-                  id="stiffness"
-                  value={form.stiffness}
-                  onChange={(e) => setForm({ ...form, stiffness: e.target.value })}
-                >
+                <Select id="stiffness" value={form.stiffness} onChange={(e) => setForm({ ...form, stiffness: e.target.value })}>
                   {STIFFNESS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="grip">Grip Size</Label>
-                <Select
-                  id="grip"
-                  value={form.gripSize}
-                  onChange={(e) => setForm({ ...form, gripSize: e.target.value })}
-                >
+                <Select id="grip" value={form.gripSize} onChange={(e) => setForm({ ...form, gripSize: e.target.value })}>
                   {GRIPS.map((g) => <option key={g} value={g}>{g}</option>)}
                 </Select>
               </div>
@@ -532,42 +517,20 @@ export function RacketsClient({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="purchaseDate">Purchase Date (optional)</Label>
-                <Input
-                  id="purchaseDate"
-                  type="date"
-                  value={form.purchaseDate}
-                  onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })}
-                />
+                <Input id="purchaseDate" type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="purchasePrice">Purchase Price (optional)</Label>
-                <Input
-                  id="purchasePrice"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.purchasePrice}
-                  onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
-                  placeholder="e.g. 150"
-                />
+                <Input id="purchasePrice" type="number" min="0" step="0.01" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} placeholder="e.g. 150" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                placeholder="Custom observations..."
-              />
+              <Textarea id="notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Custom observations..." />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : editingId ? "Update" : "Add Racket"}
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
+              <Button type="submit" disabled={loading}>{loading ? "Saving..." : editingId ? "Update" : "Add Racket"}</Button>
             </div>
           </form>
         </DialogContent>

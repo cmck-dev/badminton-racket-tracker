@@ -126,7 +126,7 @@ export async function deleteRacket(id: string) {
 export async function upsertRacketStringPreference(
   racketId: string,
   priority: 1 | 2,
-  data: { stringBrand: string; stringModel: string; reason?: string }
+  data: { stringBrand: string; stringModel: string; tension?: number; reason?: string }
 ) {
   const user = await requireAuth();
   // Verify the racket belongs to this user
@@ -134,8 +134,8 @@ export async function upsertRacketStringPreference(
   if (!racket) throw new Error("Racket not found.");
   await prisma.racketStringPreference.upsert({
     where: { racketId_priority: { racketId, priority } },
-    update: { stringBrand: data.stringBrand, stringModel: data.stringModel, reason: data.reason ?? null },
-    create: { racketId, userId: user.id, priority, stringBrand: data.stringBrand, stringModel: data.stringModel, reason: data.reason ?? null },
+    update: { stringBrand: data.stringBrand, stringModel: data.stringModel, tension: data.tension ?? null, reason: data.reason ?? null },
+    create: { racketId, userId: user.id, priority, stringBrand: data.stringBrand, stringModel: data.stringModel, tension: data.tension ?? null, reason: data.reason ?? null },
   });
   revalidatePath("/rackets");
 }
