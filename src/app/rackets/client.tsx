@@ -404,16 +404,10 @@ export function RacketsClient({
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this racket? This cannot be undone.")) return;
-    try {
-      await deleteRacket(id);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.startsWith("HAS_HISTORY:")) {
-        setPendingArchiveId(id);
-        setHistoryBlockMsg(msg.slice("HAS_HISTORY:".length));
-      } else {
-        alert(msg);
-      }
+    const result = await deleteRacket(id);
+    if (!result.ok) {
+      setPendingArchiveId(id);
+      setHistoryBlockMsg(result.message);
     }
   }
 

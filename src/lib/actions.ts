@@ -99,23 +99,25 @@ export async function updateRacket(
   return racket;
 }
 
-export async function deleteRacket(id: string) {
+export async function deleteRacket(id: string): Promise<{ ok: true } | { ok: false; code: "HAS_HISTORY"; message: string }> {
   const user = await requireAuth();
 
-  // Block delete if the racket has any history — archive instead
   const [sessionCount, stringingCount] = await Promise.all([
     prisma.playSessionRacket.count({ where: { racketId: id, userId: user.id } }),
     prisma.stringingRecord.count({ where: { racketId: id, userId: user.id } }),
   ]);
   if (sessionCount > 0 || stringingCount > 0) {
-    throw new Error(
-      `HAS_HISTORY:This racket has ${sessionCount} session${sessionCount !== 1 ? "s" : ""} and ${stringingCount} stringing record${stringingCount !== 1 ? "s" : ""}. Archive it to keep the history, or remove all sessions and stringing records first.`
-    );
+    return {
+      ok: false,
+      code: "HAS_HISTORY",
+      message: `This racket has ${sessionCount} session${sessionCount !== 1 ? "s" : ""} and ${stringingCount} stringing record${stringingCount !== 1 ? "s" : ""}. Archive it to preserve the history, or clear all records first.`,
+    };
   }
 
   await prisma.racket.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/rackets");
   revalidatePath("/");
+  return { ok: true };
 }
 
 // ─── Racket String Preference Actions ───────────────────────────
