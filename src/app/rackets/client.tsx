@@ -302,15 +302,31 @@ function RacketRows({
         <td className="px-3 py-2 text-xs text-muted-foreground align-middle whitespace-nowrap" rowSpan={2}>{r.stiffness}</td>
         <td className="px-3 py-2 text-xs text-muted-foreground align-middle" rowSpan={2}>{r.playSessions.length}</td>
         {prefTds(1)}
-        <td className="px-2 py-2 align-middle" rowSpan={2}>
-          <div className="flex gap-0.5">
-            <button onClick={onEdit} className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground">
+        {/* Sticky actions column */}
+        <td
+          className="px-3 py-2 align-middle sticky right-0 bg-card border-l"
+          rowSpan={2}
+        >
+          <div className="flex gap-0.5 items-center">
+            <button
+              onClick={onEdit}
+              title="Edit"
+              className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+            >
               <Pencil className="h-3.5 w-3.5" />
             </button>
-            <button onClick={onToggleArchive} className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground">
+            <button
+              onClick={onToggleArchive}
+              title={r.isArchived ? "Restore" : "Archive"}
+              className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+            >
               {r.isArchived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
             </button>
-            <button onClick={onDelete} className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-destructive">
+            <button
+              onClick={onDelete}
+              title="Delete"
+              className="p-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-destructive"
+            >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -336,6 +352,8 @@ export function RacketsClient({
   const [form, setForm] = useState(emptyForm);
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [historyBlockMsg, setHistoryBlockMsg] = useState<string | null>(null);
+  const [pendingArchiveId, setPendingArchiveId] = useState<string | null>(null);
 
   const rackets = initialRackets.filter((r) => showArchived || !r.isArchived);
 
@@ -385,8 +403,18 @@ export function RacketsClient({
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this racket and all its sessions/stringing records?")) return;
-    await deleteRacket(id);
+    if (!confirm("Delete this racket? This cannot be undone.")) return;
+    try {
+      await deleteRacket(id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.startsWith("HAS_HISTORY:")) {
+        setPendingArchiveId(id);
+        setHistoryBlockMsg(msg.slice("HAS_HISTORY:".length));
+      } else {
+        alert(msg);
+      }
+    }
   }
 
   async function toggleArchive(id: string, current: boolean) {
@@ -448,7 +476,7 @@ export function RacketsClient({
                 <th className="text-left px-3 py-3 font-medium">kg</th>
                 <th className="text-left px-3 py-3 font-medium">Reason</th>
                 <th className="px-3 py-3 w-5" />
-                <th className="px-3 py-3" />
+                <th className="px-3 py-3 sticky right-0 bg-muted/40" />
               </tr>
             </thead>
             <tbody>
@@ -535,6 +563,33 @@ export function RacketsClient({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Blocked-delete dialog — shown when racket has history */}
+      {historyBlockMsg && (
+        <Dialog open={!!historyBlockMsg} onOpenChange={() => { setHistoryBlockMsg(null); setPendingArchiveId(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Cannot delete — racket has history</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">{historyBlockMsg}</p>
+            <div className="flex flex-col gap-2 mt-3">
+              <Button
+                onClick={async () => {
+                  if (pendingArchiveId) await updateRacket(pendingArchiveId, { isArchived: true });
+                  setHistoryBlockMsg(null);
+                  setPendingArchiveId(null);
+                }}
+              >
+                <Archive className="h-4 w-4 mr-2" />
+                Archive this racket instead
+              </Button>
+              <Button variant="outline" onClick={() => { setHistoryBlockMsg(null); setPendingArchiveId(null); }}>
+                Cancel
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -101,21 +101,18 @@ export async function updateRacket(
 
 export async function deleteRacket(id: string) {
   const user = await requireAuth();
-  // Sessions where this is the only linked racket are deleted; sessions with other rackets keep those links.
-  const soloSessions = await prisma.playSessionRacket.findMany({
-    where: { racketId: id, userId: user.id },
-    select: { sessionId: true },
-  });
-  const soloSessionIds = soloSessions.map((r) => r.sessionId);
-  for (const sessionId of soloSessionIds) {
-    const otherLinks = await prisma.playSessionRacket.count({
-      where: { sessionId, NOT: { racketId: id } },
-    });
-    if (otherLinks === 0) {
-      await prisma.playSession.deleteMany({ where: { id: sessionId, userId: user.id } });
-    }
+
+  // Block delete if the racket has any history — archive instead
+  const [sessionCount, stringingCount] = await Promise.all([
+    prisma.playSessionRacket.count({ where: { racketId: id, userId: user.id } }),
+    prisma.stringingRecord.count({ where: { racketId: id, userId: user.id } }),
+  ]);
+  if (sessionCount > 0 || stringingCount > 0) {
+    throw new Error(
+      `HAS_HISTORY:This racket has ${sessionCount} session${sessionCount !== 1 ? "s" : ""} and ${stringingCount} stringing record${stringingCount !== 1 ? "s" : ""}. Archive it to keep the history, or remove all sessions and stringing records first.`
+    );
   }
-  await prisma.stringingRecord.deleteMany({ where: { racketId: id, userId: user.id } });
+
   await prisma.racket.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/rackets");
   revalidatePath("/");
