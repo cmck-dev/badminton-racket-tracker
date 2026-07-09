@@ -373,11 +373,25 @@ export async function backfillSessionRackets() {
 
 export async function getStringings(racketId?: string) {
   const user = await requireAuth();
-  return prisma.stringingRecord.findMany({
+  const stringings = await prisma.stringingRecord.findMany({
     where: { userId: user.id, ...(racketId ? { racketId } : {}) },
     include: { racket: true },
     orderBy: { date: "desc" },
   });
+
+  // Derive isActive from date order — the most recent stringing per racket is active.
+  // Results are already sorted desc by date, so the first seen per racket is the latest.
+  const latestByRacket = new Map<string, string>();
+  for (const s of stringings) {
+    if (!latestByRacket.has(s.racketId)) {
+      latestByRacket.set(s.racketId, s.id);
+    }
+  }
+
+  return stringings.map((s) => ({
+    ...s,
+    isActive: latestByRacket.get(s.racketId) === s.id,
+  }));
 }
 
 export async function createStringing(data: {
@@ -392,12 +406,26 @@ export async function createStringing(data: {
   durabilityNotes?: string;
 }) {
   const user = await requireAuth();
-  await prisma.stringingRecord.updateMany({
+  const newDate = new Date(data.date);
+
+  const currentActive = await prisma.stringingRecord.findFirst({
     where: { userId: user.id, racketId: data.racketId, isActive: true },
-    data: { isActive: false },
+    orderBy: { date: "desc" },
   });
+
+  // Only take over isActive if the new record is at least as recent as the current one.
+  // Logging historical records must not steal the Active badge from a newer stringing.
+  const shouldBeActive = !currentActive || newDate >= currentActive.date;
+
+  if (shouldBeActive) {
+    await prisma.stringingRecord.updateMany({
+      where: { userId: user.id, racketId: data.racketId, isActive: true },
+      data: { isActive: false },
+    });
+  }
+
   const stringing = await prisma.stringingRecord.create({
-    data: { ...data, userId: user.id, date: new Date(data.date), isActive: true },
+    data: { ...data, userId: user.id, date: newDate, isActive: shouldBeActive },
   });
   revalidatePath("/stringing");
   revalidatePath("/rackets");
