@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { Providers } from "@/components/providers";
-import { getPlayerProfile } from "@/lib/actions";
+import { getPlayerProfile, getPlayers } from "@/lib/actions";
 import { requireAuth } from "@/lib/session";
 import type { CurrencyCode } from "@/lib/currency";
 
@@ -30,9 +30,18 @@ export default async function RootLayout({
 }) {
   let defaultCurrency: CurrencyCode = "USD";
   let isAdmin = false;
+  let players: { id: string; name: string; avatarColor: string }[] = [];
   try {
-    const profile = await getPlayerProfile();
-    if (profile.currency) defaultCurrency = profile.currency as CurrencyCode;
+    const [profile, fetchedPlayers] = await Promise.all([
+      getPlayerProfile().catch(() => null),
+      getPlayers().catch(() => []),
+    ]);
+    if (profile?.currency) defaultCurrency = profile.currency as CurrencyCode;
+    players = (fetchedPlayers ?? []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      avatarColor: p.avatarColor,
+    }));
     const user = await requireAuth();
     isAdmin = user.isAdmin;
   } catch {
@@ -42,7 +51,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Providers defaultCurrency={defaultCurrency}>
+        <Providers defaultCurrency={defaultCurrency} players={players}>
           <div className="flex min-h-screen">
             <Sidebar isAdmin={isAdmin} />
             <main className="flex-1 min-w-0">
