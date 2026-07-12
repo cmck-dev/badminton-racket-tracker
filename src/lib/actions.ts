@@ -629,20 +629,28 @@ export async function createRecurringCost(data: {
   startDate: string;
   endDate?: string;
   notes?: string;
-}): Promise<{ ok: true; cost: Awaited<ReturnType<typeof prisma.recurringCost.create>> }> {
+}): Promise<{ ok: true; cost: Awaited<ReturnType<typeof prisma.recurringCost.create>> } | { ok: false; error: string }> {
   const user = await requireAuth();
-  const cost = await prisma.recurringCost.create({
-    data: {
-      ...data,
-      userId: user.id,
-      startDate: new Date(data.startDate),
-      endDate: data.endDate ? new Date(data.endDate) : null,
-    },
-  });
-  revalidatePath("/costs");
-  revalidatePath("/analytics");
-  revalidatePath("/");
-  return { ok: true, cost };
+  try {
+    const cost = await prisma.recurringCost.create({
+      data: {
+        type: data.type,
+        name: data.name,
+        billingCycle: data.billingCycle,
+        amount: data.amount,
+        userId: user.id,
+        startDate: new Date(data.startDate),
+        endDate: data.endDate ? new Date(data.endDate) : null,
+        notes: data.notes ?? null,
+      },
+    });
+    revalidatePath("/costs");
+    revalidatePath("/analytics");
+    revalidatePath("/");
+    return { ok: true, cost };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to create recurring cost." };
+  }
 }
 
 export async function updateRecurringCost(
@@ -658,12 +666,13 @@ export async function updateRecurringCost(
   }
 ): Promise<{ ok: true }> {
   const user = await requireAuth();
+  const { startDate, endDate, ...rest } = data;
   await prisma.recurringCost.updateMany({
     where: { id, userId: user.id },
     data: {
-      ...data,
-      startDate: data.startDate ? new Date(data.startDate) : undefined,
-      endDate: data.endDate === null ? null : data.endDate ? new Date(data.endDate) : undefined,
+      ...rest,
+      ...(startDate !== undefined && { startDate: new Date(startDate) }),
+      ...(endDate !== undefined && { endDate: endDate === null ? null : new Date(endDate) }),
     },
   });
   revalidatePath("/costs");
