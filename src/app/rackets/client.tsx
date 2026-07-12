@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 import { usePlayer } from "@/contexts/player-context";
+import { PlayerPicker } from "@/components/player-picker";
 import { cn } from "@/lib/utils";
 
 type StringPreference = {
@@ -58,6 +59,7 @@ type RacketWithRelations = {
   notes: string | null;
   role: string | null;
   isArchived: boolean;
+  playerId: string | null;
   createdAt: Date;
   updatedAt: Date;
   playSessions: { id: string; durationMinutes: number; date: Date }[];
@@ -91,6 +93,7 @@ const emptyForm = {
   purchaseDate: "",
   purchasePrice: "",
   notes: "",
+  playerId: "",
 };
 
 function lbsToKg(lbs: number): string {
@@ -367,7 +370,7 @@ export function RacketsClient({
 
   function openCreate() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, playerId: activePlayerId ?? "" });
     setShowDialog(true);
   }
 
@@ -383,6 +386,7 @@ export function RacketsClient({
       purchaseDate: r.purchaseDate ? new Date(r.purchaseDate).toISOString().split("T")[0] : "",
       purchasePrice: r.purchasePrice != null ? r.purchasePrice.toString() : "",
       notes: r.notes || "",
+      playerId: r.playerId ?? "",
     });
     setShowDialog(true);
   }
@@ -391,11 +395,12 @@ export function RacketsClient({
     e.preventDefault();
     setLoading(true);
     try {
+      const playerIdValue = form.playerId === "" ? null : form.playerId;
       const data = { ...form, purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : undefined };
       if (editingId) {
-        await updateRacket(editingId, data);
+        await updateRacket(editingId, { ...data, playerId: playerIdValue });
       } else {
-        await createRacket({ ...data, playerId: activePlayerId ?? undefined });
+        await createRacket({ ...data, playerId: playerIdValue ?? undefined });
       }
       setShowDialog(false);
       setForm(emptyForm);
@@ -505,6 +510,11 @@ export function RacketsClient({
             <DialogTitle>{editingId ? "Edit Racket" : "Add New Racket"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <PlayerPicker
+              value={form.playerId === "" ? null : form.playerId}
+              onChange={(id) => setForm({ ...form, playerId: id ?? "" })}
+              players={players}
+            />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="brand">Brand</Label>

@@ -25,6 +25,7 @@ import {
 import { Plus, Pencil, Trash2, Star, RefreshCw } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 import { usePlayer } from "@/contexts/player-context";
+import { PlayerPicker } from "@/components/player-picker";
 import { cn } from "@/lib/utils";
 
 type RacketLink = {
@@ -43,6 +44,7 @@ type SessionWithRackets = {
   comfortRating: number | null;
   courtCost: number | null;
   recurringGroupId: string | null;
+  playerId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -132,6 +134,7 @@ export function SessionsClient({
     powerRating: 3,
     comfortRating: 3,
     courtCost: "",
+    playerId: "",
   };
 
   const emptyRecurrence = {
@@ -198,7 +201,7 @@ export function SessionsClient({
 
   function openCreate() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, playerId: activePlayerId ?? "" });
     setRecurrence(emptyRecurrence);
     setShowDialog(true);
   }
@@ -215,6 +218,7 @@ export function SessionsClient({
       powerRating: s.powerRating || 3,
       comfortRating: s.comfortRating || 3,
       courtCost: s.courtCost != null ? s.courtCost.toString() : "",
+      playerId: s.playerId ?? "",
     });
     setRecurrence(emptyRecurrence);
     setShowDialog(true);
@@ -228,6 +232,7 @@ export function SessionsClient({
     }
     setLoading(true);
     try {
+      const playerIdValue = form.playerId === "" ? null : form.playerId;
       const baseData = {
         sessionType: form.sessionType,
         durationMinutes: parseInt(form.durationMinutes),
@@ -240,13 +245,13 @@ export function SessionsClient({
       };
 
       if (editingId) {
-        await updateSession(editingId, { ...baseData, date: form.date });
+        await updateSession(editingId, { ...baseData, date: form.date, playerId: playerIdValue });
       } else if (recurrence.enabled) {
         if (!recurrence.daysOfWeek.length) { alert("Select at least one day."); return; }
         if (previewCount > 365) { alert(`Too many sessions (${previewCount}). Max 365.`); return; }
         const startTime = form.date.includes("T") ? form.date.split("T")[1].slice(0, 5) : "09:00";
         await createRecurringSessions(
-          { ...baseData, startTime, playerId: activePlayerId ?? undefined },
+          { ...baseData, startTime, playerId: playerIdValue ?? undefined },
           {
             daysOfWeek: recurrence.daysOfWeek,
             period: recurrence.period,
@@ -256,7 +261,7 @@ export function SessionsClient({
           }
         );
       } else {
-        await createSession({ ...baseData, date: form.date, playerId: activePlayerId ?? undefined });
+        await createSession({ ...baseData, date: form.date, playerId: playerIdValue ?? undefined });
       }
       setShowDialog(false);
       setForm(emptyForm);
@@ -393,6 +398,11 @@ export function SessionsClient({
             <DialogTitle>{editingId ? "Edit Session" : "Log Session"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <PlayerPicker
+              value={form.playerId === "" ? null : form.playerId}
+              onChange={(id) => setForm({ ...form, playerId: id ?? "" })}
+              players={players}
+            />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="date">Date & Time</Label>
