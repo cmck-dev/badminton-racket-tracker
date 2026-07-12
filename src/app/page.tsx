@@ -1,4 +1,4 @@
-import { getRackets, getSessions, getStringings, getShuttles } from "@/lib/actions";
+import { getRackets, getSessions, getStringings, getShuttles, getRecurringCosts } from "@/lib/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -15,11 +15,12 @@ import {
 import { CurrencyAmount } from "@/components/currency-amount";
 
 export default async function DashboardPage() {
-  const [rackets, sessions, stringings, shuttles] = await Promise.all([
+  const [rackets, sessions, stringings, shuttles, recurringCosts] = await Promise.all([
     getRackets(),
     getSessions(10),
     getStringings(),
     getShuttles(),
+    getRecurringCosts(),
   ]);
 
   const totalSessions = sessions.length;
@@ -29,7 +30,23 @@ export default async function DashboardPage() {
   const totalCourtCost = sessions.reduce((sum, s) => sum + ((s as { courtCost?: number | null }).courtCost || 0), 0);
   const totalRacketCost = rackets.reduce((sum, r) => sum + ((r as { purchasePrice?: number | null }).purchasePrice || 0), 0);
   const totalShuttleCost = shuttles.reduce((sum, s) => sum + ((s.price ?? 0) * (s.quantity ?? 1)), 0);
-  const grandTotal = totalRacketCost + totalStringingCost + totalCourtCost + totalShuttleCost;
+  const now = new Date();
+  const totalSubscriptionCost = recurringCosts.reduce((sum, c) => {
+    const start = new Date(c.startDate);
+    const end = c.endDate ? new Date(c.endDate) : now;
+    if (start > now) return sum;
+    const effectiveEnd = end < now ? end : now;
+    if (c.billingCycle === "Monthly") {
+      const months =
+        (effectiveEnd.getFullYear() - start.getFullYear()) * 12 +
+        (effectiveEnd.getMonth() - start.getMonth());
+      return sum + Math.max(0, months) * c.amount;
+    } else {
+      const years = effectiveEnd.getFullYear() - start.getFullYear();
+      return sum + Math.max(0, years) * c.amount;
+    }
+  }, 0);
+  const grandTotal = totalRacketCost + totalStringingCost + totalCourtCost + totalShuttleCost + totalSubscriptionCost;
 
   const needsRestring = rackets.filter((r) => {
     const lastStringing = r.stringings[0];
@@ -123,6 +140,7 @@ export default async function DashboardPage() {
               <span className="text-xs text-muted-foreground">Stringing: <CurrencyAmount amount={totalStringingCost} /></span>
               <span className="text-xs text-muted-foreground">Court: <CurrencyAmount amount={totalCourtCost} /></span>
               <span className="text-xs text-muted-foreground">Shuttles: <CurrencyAmount amount={totalShuttleCost} /></span>
+              <span className="text-xs text-muted-foreground">Subscriptions: <CurrencyAmount amount={totalSubscriptionCost} /></span>
             </div>
           </CardContent>
         </Card>

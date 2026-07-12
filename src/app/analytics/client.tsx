@@ -31,6 +31,7 @@ type AnalyticsData = {
   totalRacketCost: number;
   totalCourtCost: number;
   totalShuttleCost: number;
+  totalSubscriptionCost: number;
   grandTotalCost: number;
   costPerSession: number;
   racketUsage: { id: string; name: string; sessionCount: number; totalHours: number }[];
@@ -149,6 +150,13 @@ export function AnalyticsClient({ data }: { data: AnalyticsData }) {
               <div>
                 <p className="text-xs text-muted-foreground">Shuttles</p>
                 <p className="text-sm font-medium">{fmt(data.totalShuttleCost)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Subscriptions</p>
+                <p className="text-sm font-medium">{fmt(data.totalSubscriptionCost)}</p>
               </div>
             </div>
           </div>

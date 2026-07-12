@@ -724,7 +724,7 @@ export async function deleteUser(userId: string) {
 export async function getAnalyticsData() {
   const user = await requireAuth();
 
-  const [rackets, sessions, stringings, shuttles, profile] = await Promise.all([
+  const [rackets, sessions, stringings, shuttles, profile, recurringCosts] = await Promise.all([
     prisma.racket.findMany({
       where: { userId: user.id },
       include: {
@@ -743,6 +743,7 @@ export async function getAnalyticsData() {
     }),
     prisma.shuttle.findMany({ where: { userId: user.id } }),
     getPlayerProfile(),
+    prisma.recurringCost.findMany({ where: { userId: user.id } }),
   ]);
 
   // Racket usage — via join table
@@ -837,7 +838,26 @@ export async function getAnalyticsData() {
   const totalRacketCost = rackets.reduce((sum: number, r: { purchasePrice: number | null }) => sum + (r.purchasePrice ?? 0), 0);
   const totalCourtCost = sessions.reduce((sum: number, s: { courtCost: number | null }) => sum + (s.courtCost ?? 0), 0);
   const totalShuttleCost = shuttles.reduce((sum: number, s: { price: number | null; quantity: number | null }) => sum + ((s.price ?? 0) * (s.quantity ?? 1)), 0);
-  const grandTotalCost = totalRacketCost + totalStringingCost + totalCourtCost + totalShuttleCost;
+
+  const now = new Date();
+  const totalSubscriptionCost = recurringCosts.reduce((sum, c) => {
+    const start = new Date(c.startDate);
+    const end = c.endDate ? new Date(c.endDate) : now;
+    if (start > now) return sum; // hasn't started yet
+    const effectiveEnd = end < now ? end : now;
+    if (c.billingCycle === "Monthly") {
+      const months =
+        (effectiveEnd.getFullYear() - start.getFullYear()) * 12 +
+        (effectiveEnd.getMonth() - start.getMonth());
+      return sum + Math.max(0, months) * c.amount;
+    } else {
+      // Annual
+      const years = effectiveEnd.getFullYear() - start.getFullYear();
+      return sum + Math.max(0, years) * c.amount;
+    }
+  }, 0);
+
+  const grandTotalCost = totalRacketCost + totalStringingCost + totalCourtCost + totalShuttleCost + totalSubscriptionCost;
 
   return {
     totalSessions: sessions.length,
@@ -848,6 +868,7 @@ export async function getAnalyticsData() {
     totalRacketCost: Math.round(totalRacketCost * 100) / 100,
     totalCourtCost: Math.round(totalCourtCost * 100) / 100,
     totalShuttleCost: Math.round(totalShuttleCost * 100) / 100,
+    totalSubscriptionCost: Math.round(totalSubscriptionCost * 100) / 100,
     grandTotalCost: Math.round(grandTotalCost * 100) / 100,
     costPerSession: Math.round(costPerSession * 100) / 100,
     racketUsage,
