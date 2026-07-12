@@ -611,6 +611,76 @@ export async function deleteFeedback(id: string) {
   revalidatePath("/feedback");
 }
 
+// ─── Recurring Cost Actions ─────────────────────────────────────
+
+export async function getRecurringCosts() {
+  const user = await requireAuth();
+  return prisma.recurringCost.findMany({
+    where: { userId: user.id },
+    orderBy: { startDate: "desc" },
+  });
+}
+
+export async function createRecurringCost(data: {
+  type: string;
+  name: string;
+  billingCycle: string;
+  amount: number;
+  startDate: string;
+  endDate?: string;
+  notes?: string;
+}): Promise<{ ok: true; cost: Awaited<ReturnType<typeof prisma.recurringCost.create>> }> {
+  const user = await requireAuth();
+  const cost = await prisma.recurringCost.create({
+    data: {
+      ...data,
+      userId: user.id,
+      startDate: new Date(data.startDate),
+      endDate: data.endDate ? new Date(data.endDate) : null,
+    },
+  });
+  revalidatePath("/costs");
+  revalidatePath("/analytics");
+  revalidatePath("/");
+  return { ok: true, cost };
+}
+
+export async function updateRecurringCost(
+  id: string,
+  data: {
+    type?: string;
+    name?: string;
+    billingCycle?: string;
+    amount?: number;
+    startDate?: string;
+    endDate?: string | null;
+    notes?: string;
+  }
+): Promise<{ ok: true }> {
+  const user = await requireAuth();
+  await prisma.recurringCost.updateMany({
+    where: { id, userId: user.id },
+    data: {
+      ...data,
+      startDate: data.startDate ? new Date(data.startDate) : undefined,
+      endDate: data.endDate === null ? null : data.endDate ? new Date(data.endDate) : undefined,
+    },
+  });
+  revalidatePath("/costs");
+  revalidatePath("/analytics");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+export async function deleteRecurringCost(id: string): Promise<{ ok: true }> {
+  const user = await requireAuth();
+  await prisma.recurringCost.deleteMany({ where: { id, userId: user.id } });
+  revalidatePath("/costs");
+  revalidatePath("/analytics");
+  revalidatePath("/");
+  return { ok: true };
+}
+
 // ─── Admin Actions ──────────────────────────────────────────────
 
 export async function getAllUsers() {
