@@ -830,6 +830,7 @@ export async function getAnalyticsData() {
     Match: sessions.filter((s: { sessionType: string }) => s.sessionType === "Match").length,
     Practice: sessions.filter((s: { sessionType: string }) => s.sessionType === "Practice").length,
     Training: sessions.filter((s: { sessionType: string }) => s.sessionType === "Training").length,
+    Coaching: sessions.filter((s: { sessionType: string }) => s.sessionType === "Coaching").length,
   };
 
   // Cost breakdown

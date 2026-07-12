@@ -56,7 +56,7 @@ type Racket = {
   stringings: { id: string; date: Date }[];
 };
 
-const SESSION_TYPES = ["Match", "Practice", "Training"];
+const SESSION_TYPES = ["Match", "Practice", "Training", "Coaching"];
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 function RatingInput({

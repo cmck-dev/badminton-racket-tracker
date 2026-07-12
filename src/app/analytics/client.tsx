@@ -44,7 +44,7 @@ type AnalyticsData = {
     lastStringDate: Date | null;
     needsRestring: boolean;
   }[];
-  sessionTypes: { Match: number; Practice: number; Training: number };
+  sessionTypes: { Match: number; Practice: number; Training: number; Coaching: number };
   profile: { skillLevel: string; playStyle: string; tensionMin: number; tensionMax: number };
 };
 
@@ -54,6 +54,7 @@ export function AnalyticsClient({ data }: { data: AnalyticsData }) {
     { name: "Match", value: data.sessionTypes.Match },
     { name: "Practice", value: data.sessionTypes.Practice },
     { name: "Training", value: data.sessionTypes.Training },
+    { name: "Coaching", value: data.sessionTypes.Coaching },
   ].filter((d) => d.value > 0);
 
   const hasData = data.totalSessions > 0;
