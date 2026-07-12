@@ -18,6 +18,7 @@ import {
 import { createShuttle, updateShuttle, deleteShuttle } from "@/lib/actions";
 import { Plus, Pencil, Trash2, Feather } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
+import { usePlayer } from "@/contexts/player-context";
 
 type Shuttle = {
   id: string;
@@ -64,6 +65,8 @@ export function ShuttlesClient({
 }) {
   const { fmt } = useCurrency();
   const searchParams = useSearchParams();
+  const { activePlayerId, players } = usePlayer();
+  const activePlayer = activePlayerId ? players.find((p) => p.id === activePlayerId) ?? null : null;
   const [showDialog, setShowDialog] = useState(searchParams.get("new") === "true");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -119,7 +122,7 @@ export function ShuttlesClient({
       if (editingId) {
         await updateShuttle(editingId, data);
       } else {
-        await createShuttle(data);
+        await createShuttle({ ...data, playerId: activePlayerId ?? undefined });
       }
       setShowDialog(false);
       setForm(emptyForm);
@@ -147,6 +150,12 @@ export function ShuttlesClient({
           <p className="text-muted-foreground mt-1">
             Track your shuttlecock inventory and spend
           </p>
+          {activePlayer && (
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: activePlayer.avatarColor }} />
+              Showing data for <strong>{activePlayer.name}</strong>
+            </p>
+          )}
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-2" />

@@ -24,6 +24,7 @@ import {
 } from "@/lib/actions";
 import { Plus, Pencil, Trash2, Star, RefreshCw } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
+import { usePlayer } from "@/contexts/player-context";
 import { cn } from "@/lib/utils";
 
 type RacketLink = {
@@ -109,6 +110,8 @@ export function SessionsClient({
 }) {
   const { fmt } = useCurrency();
   const searchParams = useSearchParams();
+  const { activePlayerId, players } = usePlayer();
+  const activePlayer = activePlayerId ? players.find((p) => p.id === activePlayerId) ?? null : null;
   const now = new Date();
 
   const defaultRacketIds =
@@ -253,7 +256,7 @@ export function SessionsClient({
           }
         );
       } else {
-        await createSession({ ...baseData, date: form.date });
+        await createSession({ ...baseData, date: form.date, playerId: activePlayerId ?? undefined });
       }
       setShowDialog(false);
       setForm(emptyForm);
@@ -292,6 +295,12 @@ export function SessionsClient({
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
           <p className="text-muted-foreground mt-1">Log and review your play sessions</p>
+          {activePlayer && (
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: activePlayer.avatarColor }} />
+              Showing data for <strong>{activePlayer.name}</strong>
+            </p>
+          )}
         </div>
         <Button onClick={openCreate} disabled={rackets.length === 0}>
           <Plus className="h-4 w-4 mr-2" />

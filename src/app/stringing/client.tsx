@@ -22,6 +22,7 @@ import {
 } from "@/lib/actions";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
+import { usePlayer } from "@/contexts/player-context";
 
 type StringingWithRacket = {
   id: string;
@@ -80,6 +81,8 @@ export function StringingClient({
 }) {
   const { fmt } = useCurrency();
   const searchParams = useSearchParams();
+  const { activePlayerId, players } = usePlayer();
+  const activePlayer = activePlayerId ? players.find((p) => p.id === activePlayerId) ?? null : null;
   const [showDialog, setShowDialog] = useState(
     searchParams.get("new") === "true"
   );
@@ -159,6 +162,7 @@ export function StringingClient({
           stringer: form.stringer || undefined,
           cost: form.cost ? parseFloat(form.cost) : undefined,
           durabilityNotes: form.durabilityNotes || undefined,
+          playerId: activePlayerId ?? undefined,
         });
       }
       setShowDialog(false);
@@ -183,6 +187,12 @@ export function StringingClient({
           <p className="text-muted-foreground mt-1">
             Track your stringing history and costs
           </p>
+          {activePlayer && (
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: activePlayer.avatarColor }} />
+              Showing data for <strong>{activePlayer.name}</strong>
+            </p>
+          )}
         </div>
         <Button onClick={openCreate} disabled={rackets.length === 0}>
           <Plus className="h-4 w-4 mr-2" />

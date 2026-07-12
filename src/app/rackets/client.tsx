@@ -32,6 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
+import { usePlayer } from "@/contexts/player-context";
 import { cn } from "@/lib/utils";
 
 type StringPreference = {
@@ -347,6 +348,8 @@ export function RacketsClient({
 }) {
   const searchParams = useSearchParams();
   const { fmt } = useCurrency();
+  const { activePlayerId, players } = usePlayer();
+  const activePlayer = activePlayerId ? players.find((p) => p.id === activePlayerId) ?? null : null;
   const [showDialog, setShowDialog] = useState(searchParams.get("new") === "true");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -392,7 +395,7 @@ export function RacketsClient({
       if (editingId) {
         await updateRacket(editingId, data);
       } else {
-        await createRacket(data);
+        await createRacket({ ...data, playerId: activePlayerId ?? undefined });
       }
       setShowDialog(false);
       setForm(emptyForm);
@@ -421,6 +424,12 @@ export function RacketsClient({
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Rackets</h1>
           <p className="text-muted-foreground mt-1">Manage your racket collection</p>
+          {activePlayer && (
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: activePlayer.avatarColor }} />
+              Showing data for <strong>{activePlayer.name}</strong>
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowArchived(!showArchived)}>
