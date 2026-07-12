@@ -56,6 +56,7 @@ model User {
   feedbacks         Feedback[]
   stringPreferences RacketStringPreference[]
   recurringCosts    RecurringCost[]
+  players           Player[]
 }
 
 model VerificationToken {
@@ -72,6 +73,8 @@ model Racket {
   id           String   @id @default(cuid())
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playerId     String?
+  player       Player?  @relation(fields: [playerId], references: [id])
   brand        String
   model        String
   weightClass  String
@@ -137,6 +140,8 @@ model PlaySession {
   id               String   @id @default(cuid())
   userId           String
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playerId         String?
+  player           Player?  @relation(fields: [playerId], references: [id])
   date             DateTime @default(now())
   sessionType      String
   durationMinutes  Int
@@ -173,6 +178,8 @@ model StringingRecord {
   id              String   @id @default(cuid())
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playerId        String?
+  player          Player?  @relation(fields: [playerId], references: [id])
   date            DateTime @default(now())
   racketId        String
   racket          Racket   @relation(fields: [racketId], references: [id])
@@ -195,6 +202,8 @@ model Shuttle {
   id           String    @id @default(cuid())
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playerId     String?
+  player       Player?   @relation(fields: [playerId], references: [id])
   brand        String
   model        String?
   type         String    @default("Feather")
@@ -237,4 +246,22 @@ model RecurringCost {
   notes        String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+// ─── Player Sub-Profile ──────────────────────────────────────────
+
+model Player {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  avatarColor String   @default("#6366f1")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rackets      Racket[]
+  playSessions PlaySession[]
+  stringings   StringingRecord[]
+  shuttles     Shuttle[]
 }
