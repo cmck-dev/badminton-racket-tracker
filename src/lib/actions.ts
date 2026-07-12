@@ -1068,3 +1068,88 @@ export async function getActivePlayerId(): Promise<string | null> {
   const owned = await verifyPlayerOwnership(playerId, user.id);
   return owned ? playerId : null;
 }
+
+// ─── Batch Reassignment ─────────────────────────────────────────
+
+export async function batchReassign(input: {
+  fromPlayerId: string | null;
+  toPlayerId: string | null;
+  types: Array<"rackets" | "sessions" | "stringing" | "shuttles" | "costs">;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<{ ok: true; counts: Record<string, number> } | { ok: false; error: string }> {
+  const user = await requireAuth();
+
+  if (input.fromPlayerId === input.toPlayerId) {
+    return { ok: false, error: "Source and target player must be different." };
+  }
+  if (input.fromPlayerId) {
+    const owned = await verifyPlayerOwnership(input.fromPlayerId, user.id);
+    if (!owned) return { ok: false, error: "Source player not found." };
+  }
+  if (input.toPlayerId) {
+    const owned = await verifyPlayerOwnership(input.toPlayerId, user.id);
+    if (!owned) return { ok: false, error: "Target player not found." };
+  }
+
+  const counts: Record<string, number> = {};
+  const dateFilter = (field: "date") => {
+    if (!input.dateFrom && !input.dateTo) return {};
+    return {
+      [field]: {
+        ...(input.dateFrom ? { gte: new Date(input.dateFrom) } : {}),
+        ...(input.dateTo ? { lte: new Date(input.dateTo + "T23:59:59.999Z") } : {}),
+      },
+    };
+  };
+
+  if (input.types.includes("rackets")) {
+    const result = await prisma.racket.updateMany({
+      where: { userId: user.id, playerId: input.fromPlayerId },
+      data: { playerId: input.toPlayerId },
+    });
+    counts.rackets = result.count;
+  }
+
+  if (input.types.includes("sessions")) {
+    const result = await prisma.playSession.updateMany({
+      where: { userId: user.id, playerId: input.fromPlayerId, ...dateFilter("date") },
+      data: { playerId: input.toPlayerId },
+    });
+    counts.sessions = result.count;
+  }
+
+  if (input.types.includes("stringing")) {
+    const result = await prisma.stringingRecord.updateMany({
+      where: { userId: user.id, playerId: input.fromPlayerId, ...dateFilter("date") },
+      data: { playerId: input.toPlayerId },
+    });
+    counts.stringing = result.count;
+  }
+
+  if (input.types.includes("shuttles")) {
+    const result = await prisma.shuttle.updateMany({
+      where: { userId: user.id, playerId: input.fromPlayerId },
+      data: { playerId: input.toPlayerId },
+    });
+    counts.shuttles = result.count;
+  }
+
+  if (input.types.includes("costs")) {
+    const result = await prisma.recurringCost.updateMany({
+      where: { userId: user.id, playerId: input.fromPlayerId },
+      data: { playerId: input.toPlayerId },
+    });
+    counts.costs = result.count;
+  }
+
+  revalidatePath("/rackets");
+  revalidatePath("/sessions");
+  revalidatePath("/stringing");
+  revalidatePath("/shuttles");
+  revalidatePath("/costs");
+  revalidatePath("/analytics");
+  revalidatePath("/");
+
+  return { ok: true, counts };
+}

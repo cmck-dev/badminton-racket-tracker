@@ -13,7 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { createPlayer, updatePlayer, deletePlayer } from "@/lib/actions";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeftRight } from "lucide-react";
+import Link from "next/link";
 
 type Player = {
   id: string;
@@ -108,10 +109,19 @@ export function PlayersClient({ initialPlayers }: { initialPlayers: Player[] }) 
             Manage sub-profiles — track equipment and sessions per player
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Player
-        </Button>
+        <div className="flex gap-2">
+          <Link
+            href="/reassign"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md border text-sm font-medium hover:bg-accent transition-colors"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            Reassign Records
+          </Link>
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Player
+          </Button>
+        </div>
       </div>
 
       {players.length === 0 ? (
