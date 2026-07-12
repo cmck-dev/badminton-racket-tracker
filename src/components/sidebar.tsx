@@ -17,6 +17,7 @@ import {
   Feather,
   MessageSquarePlus,
   ShieldCheck,
+  Receipt,
 } from "lucide-react";
 import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -30,6 +31,7 @@ const baseNavItems = [
   { href: "/stringing", label: "Stringing", icon: Wrench },
   { href: "/shuttles", label: "Shuttles", icon: Feather },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/costs", label: "Costs", icon: Receipt },
   { href: "/profile", label: "Profile", icon: User },
   { href: "/feedback", label: "Feedback", icon: MessageSquarePlus },
 ];
