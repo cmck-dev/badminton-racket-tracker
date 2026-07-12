@@ -19,6 +19,7 @@ import { createShuttle, updateShuttle, deleteShuttle } from "@/lib/actions";
 import { Plus, Pencil, Trash2, Feather } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 import { usePlayer } from "@/contexts/player-context";
+import { PlayerPicker } from "@/components/player-picker";
 
 type Shuttle = {
   id: string;
@@ -32,6 +33,7 @@ type Shuttle = {
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
+  playerId: string | null;
 };
 
 const SHUTTLE_BRANDS = ["Yonex", "Victor", "Li-Ning", "Oliver", "RSL", "Mavis", "Carlton", "Other"];
@@ -56,6 +58,7 @@ const emptyForm = {
   price: "",
   purchaseDate: "",
   notes: "",
+  playerId: "",
 };
 
 export function ShuttlesClient({
@@ -74,7 +77,7 @@ export function ShuttlesClient({
 
   function openCreate() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, playerId: activePlayerId ?? "" });
     setShowDialog(true);
   }
 
@@ -91,6 +94,7 @@ export function ShuttlesClient({
         ? new Date(s.purchaseDate).toISOString().split("T")[0]
         : "",
       notes: s.notes || "",
+      playerId: s.playerId ?? "",
     });
     setShowDialog(true);
   }
@@ -109,6 +113,7 @@ export function ShuttlesClient({
     e.preventDefault();
     setLoading(true);
     try {
+      const playerIdValue = form.playerId === "" ? null : form.playerId;
       const data = {
         brand: form.brand,
         model: form.model || undefined,
@@ -120,9 +125,9 @@ export function ShuttlesClient({
         notes: form.notes || undefined,
       };
       if (editingId) {
-        await updateShuttle(editingId, data);
+        await updateShuttle(editingId, { ...data, playerId: playerIdValue });
       } else {
-        await createShuttle({ ...data, playerId: activePlayerId ?? undefined });
+        await createShuttle({ ...data, playerId: playerIdValue ?? undefined });
       }
       setShowDialog(false);
       setForm(emptyForm);
@@ -279,6 +284,11 @@ export function ShuttlesClient({
                 </div>
               </div>
             )}
+            <PlayerPicker
+              value={form.playerId === "" ? null : form.playerId}
+              onChange={(id) => setForm({ ...form, playerId: id ?? "" })}
+              players={players}
+            />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="brand">Brand</Label>

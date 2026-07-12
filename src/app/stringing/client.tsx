@@ -23,6 +23,7 @@ import {
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
 import { usePlayer } from "@/contexts/player-context";
+import { PlayerPicker } from "@/components/player-picker";
 
 type StringingWithRacket = {
   id: string;
@@ -40,6 +41,7 @@ type StringingWithRacket = {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  playerId: string | null;
 };
 
 type Racket = {
@@ -103,6 +105,7 @@ export function StringingClient({
     cost: lastStringing?.cost?.toString() || "",
     durabilityNotes: "",
     brokeAfter: "",
+    playerId: "",
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -114,7 +117,7 @@ export function StringingClient({
 
   function openCreate() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, playerId: activePlayerId ?? "" });
     setShowDialog(true);
   }
 
@@ -131,6 +134,7 @@ export function StringingClient({
       cost: s.cost?.toString() || "",
       durabilityNotes: s.durabilityNotes || "",
       brokeAfter: s.brokeAfter?.toString() || "",
+      playerId: s.playerId ?? "",
     });
     setShowDialog(true);
   }
@@ -139,6 +143,7 @@ export function StringingClient({
     e.preventDefault();
     setLoading(true);
     try {
+      const playerIdValue = form.playerId === "" ? null : form.playerId;
       if (editingId) {
         await updateStringing(editingId, {
           date: form.date,
@@ -150,6 +155,7 @@ export function StringingClient({
           cost: form.cost ? parseFloat(form.cost) : undefined,
           durabilityNotes: form.durabilityNotes || undefined,
           brokeAfter: form.brokeAfter ? parseInt(form.brokeAfter) : null,
+          playerId: playerIdValue,
         });
       } else {
         await createStringing({
@@ -162,7 +168,7 @@ export function StringingClient({
           stringer: form.stringer || undefined,
           cost: form.cost ? parseFloat(form.cost) : undefined,
           durabilityNotes: form.durabilityNotes || undefined,
-          playerId: activePlayerId ?? undefined,
+          playerId: playerIdValue ?? undefined,
         });
       }
       setShowDialog(false);
@@ -370,6 +376,11 @@ export function StringingClient({
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <PlayerPicker
+              value={form.playerId === "" ? null : form.playerId}
+              onChange={(id) => setForm({ ...form, playerId: id ?? "" })}
+              players={players}
+            />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="s-date">Date</Label>

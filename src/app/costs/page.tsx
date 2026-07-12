@@ -1,10 +1,14 @@
 import { Suspense } from "react";
-import { getRecurringCosts } from "@/lib/actions";
+import { getRecurringCosts, getPlayers, getActivePlayerId } from "@/lib/actions";
 import { CostsClient } from "./client";
 
 async function CostsContent() {
-  const costs = await getRecurringCosts();
-  return <CostsClient initialCosts={costs} />;
+  const activePlayerId = await getActivePlayerId();
+  const [costs, players] = await Promise.all([
+    getRecurringCosts(activePlayerId ?? undefined),
+    getPlayers().catch(() => []),
+  ]);
+  return <CostsClient initialCosts={costs} players={players} initialPlayerId={activePlayerId} />;
 }
 
 export default function CostsPage() {

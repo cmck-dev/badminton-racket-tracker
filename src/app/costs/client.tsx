@@ -17,6 +17,7 @@ import {
 import { createRecurringCost, updateRecurringCost, deleteRecurringCost } from "@/lib/actions";
 import { Plus, Pencil, Trash2, CalendarDays } from "lucide-react";
 import { useCurrency } from "@/contexts/currency-context";
+import { PlayerPicker } from "@/components/player-picker";
 
 type RecurringCost = {
   id: string;
@@ -27,6 +28,7 @@ type RecurringCost = {
   startDate: Date;
   endDate: Date | null;
   notes: string | null;
+  playerId: string | null;
 };
 
 const TYPE_OPTIONS = ["Club", "Coaching", "Other"];
@@ -43,8 +45,17 @@ function isActive(cost: RecurringCost): boolean {
   return new Date(cost.startDate) <= now && (!cost.endDate || new Date(cost.endDate) >= now);
 }
 
-export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] }) {
+export function CostsClient({
+  initialCosts,
+  players = [],
+  initialPlayerId = null,
+}: {
+  initialCosts: RecurringCost[];
+  players?: { id: string; name: string; avatarColor: string }[];
+  initialPlayerId?: string | null;
+}) {
   const { fmt } = useCurrency();
+  const activePlayer = initialPlayerId ? players.find((p) => p.id === initialPlayerId) ?? null : null;
   const [showDialog, setShowDialog] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,12 +69,13 @@ export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] })
     startDate: new Date().toISOString().split("T")[0],
     endDate: "",
     notes: "",
+    playerId: "",
   };
   const [form, setForm] = useState(emptyForm);
 
   function openCreate() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, playerId: initialPlayerId ?? "" });
     setShowDialog(true);
   }
 
@@ -77,6 +89,7 @@ export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] })
       startDate: new Date(c.startDate).toISOString().split("T")[0],
       endDate: c.endDate ? new Date(c.endDate).toISOString().split("T")[0] : "",
       notes: c.notes || "",
+      playerId: c.playerId ?? "",
     });
     setShowDialog(true);
   }
@@ -86,6 +99,7 @@ export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] })
     setLoading(true);
     setSubmitError(null);
     try {
+      const playerIdValue = form.playerId === "" ? null : form.playerId;
       const data = {
         type: form.type,
         name: form.name,
@@ -96,9 +110,9 @@ export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] })
         notes: form.notes || undefined,
       };
       if (editingId) {
-        await updateRecurringCost(editingId, data);
+        await updateRecurringCost(editingId, { ...data, playerId: playerIdValue });
       } else {
-        const result = await createRecurringCost(data);
+        const result = await createRecurringCost({ ...data, playerId: playerIdValue ?? undefined });
         if (!result.ok) {
           setSubmitError(result.error);
           return;
@@ -127,6 +141,12 @@ export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] })
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Recurring Costs</h1>
           <p className="text-muted-foreground mt-1">Club memberships and coaching subscriptions</p>
+          {activePlayer && (
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: activePlayer.avatarColor }} />
+              Showing data for <strong>{activePlayer.name}</strong>
+            </p>
+          )}
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-2" />
@@ -211,6 +231,11 @@ export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] })
             <DialogTitle>{editingId ? "Edit Recurring Cost" : "Add Recurring Cost"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <PlayerPicker
+              value={form.playerId === "" ? null : form.playerId}
+              onChange={(id) => setForm({ ...form, playerId: id ?? "" })}
+              players={players}
+            />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Type</Label>
