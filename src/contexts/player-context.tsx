@@ -32,7 +32,7 @@ export function PlayerProvider({
     // Only restore if the stored player still exists
     if (stored && initialPlayers.some((p) => p.id === stored)) {
       setActivePlayerIdState(stored);
-      document.cookie = `shuttletrack-player=${stored}; path=/; max-age=31536000; SameSite=Lax`;
+      document.cookie = `shuttletrack-player=${stored}; path=/; max-age=31536000; SameSite=Lax; Secure`;
     }
   }, [initialPlayers]);
 
@@ -40,7 +40,7 @@ export function PlayerProvider({
     setActivePlayerIdState(id);
     if (id) {
       localStorage.setItem(STORAGE_KEY, id);
-      document.cookie = `shuttletrack-player=${id}; path=/; max-age=31536000; SameSite=Lax`;
+      document.cookie = `shuttletrack-player=${id}; path=/; max-age=31536000; SameSite=Lax; Secure`;
     } else {
       localStorage.removeItem(STORAGE_KEY);
       document.cookie = `shuttletrack-player=; path=/; max-age=0`;
