@@ -7,11 +7,18 @@ import { generateRecurringDates } from "@/lib/recurrence";
 
 // ─── Racket Actions ─────────────────────────────────────────────
 
-export async function getRackets(includeArchived = false) {
+export async function getRackets(includeArchived = false, playerId?: string) {
   const user = await requireAuth();
+
+  if (playerId) {
+    const owned = await verifyPlayerOwnership(playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
+
   return prisma.racket.findMany({
     where: {
       userId: user.id,
+      playerId: playerId ?? null,
       ...(includeArchived ? {} : { isArchived: false }),
     },
     include: {
@@ -44,13 +51,19 @@ export async function createRacket(data: {
   purchaseDate?: string;
   purchasePrice?: number;
   notes?: string;
+  playerId?: string;
 }) {
   const user = await requireAuth();
+  if (data.playerId) {
+    const owned = await verifyPlayerOwnership(data.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
   const racket = await prisma.racket.create({
     data: {
       ...data,
       userId: user.id,
       purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
+      playerId: data.playerId ?? null,
     },
   });
   revalidatePath("/rackets");
@@ -149,10 +162,16 @@ export async function deleteRacketStringPreference(racketId: string, priority: 1
 
 // ─── Play Session Actions ───────────────────────────────────────
 
-export async function getSessions(limit?: number) {
+export async function getSessions(limit?: number, playerId?: string) {
   const user = await requireAuth();
+
+  if (playerId) {
+    const owned = await verifyPlayerOwnership(playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
+
   return prisma.playSession.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, playerId: playerId ?? null },
     include: {
       rackets: { include: { racket: { select: { id: true, brand: true, model: true } } } },
     },
@@ -171,11 +190,16 @@ export async function createSession(data: {
   powerRating?: number;
   comfortRating?: number;
   courtCost?: number;
+  playerId?: string;
 }) {
   const user = await requireAuth();
+  if (data.playerId) {
+    const owned = await verifyPlayerOwnership(data.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
   const { racketIds, ...rest } = data;
   const session = await prisma.playSession.create({
-    data: { ...rest, userId: user.id, date: new Date(data.date) },
+    data: { ...rest, userId: user.id, date: new Date(data.date), playerId: data.playerId ?? null },
   });
   await prisma.playSessionRacket.createMany({
     data: racketIds.map((racketId) => ({ sessionId: session.id, racketId, userId: user.id })),
@@ -371,10 +395,16 @@ export async function backfillSessionRackets() {
 
 // ─── Stringing Actions ──────────────────────────────────────────
 
-export async function getStringings(racketId?: string) {
+export async function getStringings(racketId?: string, playerId?: string) {
   const user = await requireAuth();
+
+  if (playerId) {
+    const owned = await verifyPlayerOwnership(playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
+
   const stringings = await prisma.stringingRecord.findMany({
-    where: { userId: user.id, ...(racketId ? { racketId } : {}) },
+    where: { userId: user.id, playerId: playerId ?? null, ...(racketId ? { racketId } : {}) },
     include: { racket: true },
     orderBy: { date: "desc" },
   });
@@ -404,8 +434,13 @@ export async function createStringing(data: {
   stringer?: string;
   cost?: number;
   durabilityNotes?: string;
+  playerId?: string;
 }) {
   const user = await requireAuth();
+  if (data.playerId) {
+    const owned = await verifyPlayerOwnership(data.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
   const newDate = new Date(data.date);
 
   const currentActive = await prisma.stringingRecord.findFirst({
@@ -425,7 +460,7 @@ export async function createStringing(data: {
   }
 
   const stringing = await prisma.stringingRecord.create({
-    data: { ...data, userId: user.id, date: newDate, isActive: shouldBeActive },
+    data: { ...data, userId: user.id, date: newDate, isActive: shouldBeActive, playerId: data.playerId ?? null },
   });
   revalidatePath("/stringing");
   revalidatePath("/rackets");
@@ -501,10 +536,16 @@ export async function updatePlayerProfile(data: {
 
 // ─── Shuttle Actions ────────────────────────────────────────────
 
-export async function getShuttles() {
+export async function getShuttles(playerId?: string) {
   const user = await requireAuth();
+
+  if (playerId) {
+    const owned = await verifyPlayerOwnership(playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
+
   return prisma.shuttle.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, playerId: playerId ?? null },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -518,13 +559,19 @@ export async function createShuttle(data: {
   price?: number;
   purchaseDate?: string;
   notes?: string;
+  playerId?: string;
 }) {
   const user = await requireAuth();
+  if (data.playerId) {
+    const owned = await verifyPlayerOwnership(data.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
   const shuttle = await prisma.shuttle.create({
     data: {
       ...data,
       userId: user.id,
       purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
+      playerId: data.playerId ?? null,
     },
   });
   revalidatePath("/shuttles");
@@ -721,27 +768,34 @@ export async function deleteUser(userId: string) {
   revalidatePath("/admin");
 }
 
-export async function getAnalyticsData() {
+export async function getAnalyticsData(playerId?: string) {
   const user = await requireAuth();
+
+  if (playerId) {
+    const owned = await verifyPlayerOwnership(playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
+
+  const scopedPlayerId = playerId ?? null;
 
   const [rackets, sessions, stringings, shuttles, profile, recurringCosts] = await Promise.all([
     prisma.racket.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, playerId: scopedPlayerId },
       include: {
         sessionLinks: { include: { session: { select: { durationMinutes: true, date: true } } } },
         stringings: true,
       },
     }),
     prisma.playSession.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, playerId: scopedPlayerId },
       orderBy: { date: "asc" },
     }),
     prisma.stringingRecord.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, playerId: scopedPlayerId },
       include: { racket: true },
       orderBy: { date: "asc" },
     }),
-    prisma.shuttle.findMany({ where: { userId: user.id } }),
+    prisma.shuttle.findMany({ where: { userId: user.id, playerId: scopedPlayerId } }),
     getPlayerProfile(),
     prisma.recurringCost.findMany({ where: { userId: user.id } }),
   ]);
@@ -880,4 +934,68 @@ export async function getAnalyticsData() {
     sessionTypes,
     profile,
   };
+}
+
+// ─── Player Sub-Profile Actions ─────────────────────────────────
+
+async function verifyPlayerOwnership(playerId: string, userId: string): Promise<boolean> {
+  const player = await prisma.player.findFirst({ where: { id: playerId, userId } });
+  return !!player;
+}
+
+export async function getPlayers() {
+  const user = await requireAuth();
+  return prisma.player.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function createPlayer(data: {
+  name: string;
+  avatarColor?: string;
+  notes?: string;
+}): Promise<{ ok: true; player: Awaited<ReturnType<typeof prisma.player.create>> }> {
+  const user = await requireAuth();
+  const player = await prisma.player.create({
+    data: { ...data, userId: user.id, avatarColor: data.avatarColor ?? "#6366f1" },
+  });
+  revalidatePath("/players");
+  return { ok: true, player };
+}
+
+export async function updatePlayer(
+  id: string,
+  data: { name?: string; avatarColor?: string; notes?: string }
+): Promise<{ ok: true }> {
+  const user = await requireAuth();
+  await prisma.player.updateMany({ where: { id, userId: user.id }, data });
+  revalidatePath("/players");
+  return { ok: true };
+}
+
+export async function deletePlayer(
+  id: string
+): Promise<{ ok: true } | { ok: false; code: "HAS_DATA"; message: string }> {
+  const user = await requireAuth();
+
+  const [rackets, sessions, stringings, shuttles] = await Promise.all([
+    prisma.racket.count({ where: { playerId: id, userId: user.id } }),
+    prisma.playSession.count({ where: { playerId: id, userId: user.id } }),
+    prisma.stringingRecord.count({ where: { playerId: id, userId: user.id } }),
+    prisma.shuttle.count({ where: { playerId: id, userId: user.id } }),
+  ]);
+
+  const total = rackets + sessions + stringings + shuttles;
+  if (total > 0) {
+    return {
+      ok: false,
+      code: "HAS_DATA",
+      message: `This player has ${total} record(s). Delete or reassign their data first.`,
+    };
+  }
+
+  await prisma.player.deleteMany({ where: { id, userId: user.id } });
+  revalidatePath("/players");
+  return { ok: true };
 }
