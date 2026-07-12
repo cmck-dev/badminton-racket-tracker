@@ -237,6 +237,8 @@ model RecurringCost {
   id           String    @id @default(cuid())
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playerId     String?
+  player       Player?   @relation(fields: [playerId], references: [id])
   type         String    // "Club" | "Coaching" | "Other"
   name         String
   billingCycle String    // "Monthly" | "Annual"
@@ -260,8 +262,9 @@ model Player {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  rackets      Racket[]
-  playSessions PlaySession[]
-  stringings   StringingRecord[]
-  shuttles     Shuttle[]
+  rackets        Racket[]
+  playSessions   PlaySession[]
+  stringings     StringingRecord[]
+  shuttles       Shuttle[]
+  recurringCosts RecurringCost[]
 }
