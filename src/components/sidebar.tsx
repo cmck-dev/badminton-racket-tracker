@@ -10,6 +10,7 @@ import {
   Wrench,
   BarChart3,
   User,
+  Users,
   Menu,
   X,
   ChevronLeft,
@@ -23,6 +24,7 @@ import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useCurrency } from "@/contexts/currency-context";
 import { CURRENCIES } from "@/lib/currency";
+import { usePlayer } from "@/contexts/player-context";
 
 const baseNavItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -32,6 +34,7 @@ const baseNavItems = [
   { href: "/shuttles", label: "Shuttles", icon: Feather },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/costs", label: "Costs", icon: Receipt },
+  { href: "/players", label: "Players", icon: Users },
   { href: "/profile", label: "Profile", icon: User },
   { href: "/feedback", label: "Feedback", icon: MessageSquarePlus },
 ];
@@ -42,6 +45,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
   const { currency, setCurrency } = useCurrency();
+  const { activePlayerId, setActivePlayerId, players } = usePlayer();
 
   const navItems = isAdmin
     ? [...baseNavItems, { href: "/admin", label: "Admin", icon: ShieldCheck }]
@@ -82,6 +86,41 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
             )}
           </div>
         </div>
+
+        {/* Player switcher */}
+        {!collapsed && players.length > 0 && (
+          <div className="px-3 pb-3 pt-4 border-b">
+            <p className="text-xs text-muted-foreground mb-1.5 font-medium uppercase tracking-wide">Viewing as</p>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={() => setActivePlayerId(null)}
+                className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                  !activePlayerId ? "bg-accent font-medium" : "hover:bg-accent/50"
+                }`}
+              >
+                <div className="h-5 w-5 rounded-full bg-slate-400 flex items-center justify-center text-white text-xs font-semibold">M</div>
+                Me
+              </button>
+              {players.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setActivePlayerId(p.id)}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                    activePlayerId === p.id ? "bg-accent font-medium" : "hover:bg-accent/50"
+                  }`}
+                >
+                  <div
+                    className="h-5 w-5 rounded-full flex items-center justify-center text-white text-xs font-semibold"
+                    style={{ backgroundColor: p.avatarColor }}
+                  >
+                    {p.name.charAt(0).toUpperCase()}
+                  </div>
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Nav */}
         <nav className="flex-1 py-4 px-2 space-y-1">
