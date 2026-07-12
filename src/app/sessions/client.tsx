@@ -246,7 +246,7 @@ export function SessionsClient({
         if (previewCount > 365) { alert(`Too many sessions (${previewCount}). Max 365.`); return; }
         const startTime = form.date.includes("T") ? form.date.split("T")[1].slice(0, 5) : "09:00";
         await createRecurringSessions(
-          { ...baseData, startTime },
+          { ...baseData, startTime, playerId: activePlayerId ?? undefined },
           {
             daysOfWeek: recurrence.daysOfWeek,
             period: recurrence.period,

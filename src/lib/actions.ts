@@ -280,6 +280,7 @@ export async function createRecurringSessions(
     comfortRating?: number;
     courtCost?: number;
     startTime: string; // HH:mm — applied to every generated date
+    playerId?: string;
   },
   recurrence: {
     daysOfWeek: number[]; // 0=Sun … 6=Sat
@@ -294,6 +295,10 @@ export async function createRecurringSessions(
   }
 
   const user = await requireAuth();
+  if (sessionData.playerId) {
+    const owned = await verifyPlayerOwnership(sessionData.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
   const now = new Date();
   const year = recurrence.year ?? now.getFullYear();
 
@@ -347,6 +352,7 @@ export async function createRecurringSessions(
       comfortRating: sessionData.comfortRating ?? null,
       courtCost: sessionData.courtCost ?? null,
       recurringGroupId: groupId,
+      playerId: sessionData.playerId ?? null,
     };
   });
 
