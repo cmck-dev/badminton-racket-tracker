@@ -48,6 +48,7 @@ export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] })
   const [showDialog, setShowDialog] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const emptyForm = {
     type: "Club",
@@ -83,6 +84,7 @@ export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] })
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setSubmitError(null);
     try {
       const data = {
         type: form.type,
@@ -96,7 +98,11 @@ export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] })
       if (editingId) {
         await updateRecurringCost(editingId, data);
       } else {
-        await createRecurringCost(data);
+        const result = await createRecurringCost(data);
+        if (!result.ok) {
+          setSubmitError(result.error);
+          return;
+        }
       }
       setShowDialog(false);
       setEditingId(null);
@@ -267,6 +273,9 @@ export function CostsClient({ initialCosts }: { initialCosts: RecurringCost[] })
                 placeholder="Any details..."
               />
             </div>
+            {submitError && (
+              <p className="text-sm text-destructive">{submitError}</p>
+            )}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
               <Button type="submit" disabled={loading}>
