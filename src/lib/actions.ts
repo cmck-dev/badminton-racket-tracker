@@ -86,9 +86,14 @@ export async function updateRacket(
     notes?: string;
     role?: string | null;
     isArchived?: boolean;
+    playerId?: string | null;
   }
 ) {
   const user = await requireAuth();
+  if (data.playerId) {
+    const owned = await verifyPlayerOwnership(data.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
   // Each role must be unique — clear it from any other racket first
   if (data.role) {
     await prisma.racket.updateMany({
@@ -96,16 +101,18 @@ export async function updateRacket(
       data: { role: null },
     });
   }
+  const { playerId, ...rest } = data;
   const racket = await prisma.racket.updateMany({
     where: { id, userId: user.id },
     data: {
-      ...data,
+      ...rest,
       purchaseDate:
-        data.purchaseDate === null
+        rest.purchaseDate === null
           ? null
-          : data.purchaseDate
-          ? new Date(data.purchaseDate)
+          : rest.purchaseDate
+          ? new Date(rest.purchaseDate)
           : undefined,
+      ...(playerId !== undefined && { playerId }),
     },
   });
   revalidatePath("/rackets");
@@ -223,13 +230,22 @@ export async function updateSession(
     powerRating?: number;
     comfortRating?: number;
     courtCost?: number | null;
+    playerId?: string | null;
   }
 ) {
   const user = await requireAuth();
-  const { racketIds, ...rest } = data;
+  if (data.playerId) {
+    const owned = await verifyPlayerOwnership(data.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
+  const { racketIds, playerId, ...rest } = data;
   await prisma.playSession.updateMany({
     where: { id, userId: user.id },
-    data: { ...rest, date: rest.date ? new Date(rest.date) : undefined },
+    data: {
+      ...rest,
+      date: rest.date ? new Date(rest.date) : undefined,
+      ...(playerId !== undefined && { playerId }),
+    },
   });
   if (racketIds) {
     await prisma.playSessionRacket.deleteMany({ where: { sessionId: id, userId: user.id } });
@@ -488,12 +504,22 @@ export async function updateStringing(
     brokeAfter?: number | null;
     durabilityNotes?: string;
     isActive?: boolean;
+    playerId?: string | null;
   }
 ) {
   const user = await requireAuth();
+  if (data.playerId) {
+    const owned = await verifyPlayerOwnership(data.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
+  const { playerId, ...rest } = data;
   await prisma.stringingRecord.updateMany({
     where: { id, userId: user.id },
-    data: { ...data, date: data.date ? new Date(data.date) : undefined },
+    data: {
+      ...rest,
+      date: rest.date ? new Date(rest.date) : undefined,
+      ...(playerId !== undefined && { playerId }),
+    },
   });
   revalidatePath("/stringing");
   revalidatePath("/");
@@ -597,19 +623,26 @@ export async function updateShuttle(
     price?: number | null;
     purchaseDate?: string | null;
     notes?: string;
+    playerId?: string | null;
   }
 ) {
   const user = await requireAuth();
+  if (data.playerId) {
+    const owned = await verifyPlayerOwnership(data.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
+  const { playerId, ...rest } = data;
   await prisma.shuttle.updateMany({
     where: { id, userId: user.id },
     data: {
-      ...data,
+      ...rest,
       purchaseDate:
-        data.purchaseDate === null
+        rest.purchaseDate === null
           ? null
-          : data.purchaseDate
-          ? new Date(data.purchaseDate)
+          : rest.purchaseDate
+          ? new Date(rest.purchaseDate)
           : undefined,
+      ...(playerId !== undefined && { playerId }),
     },
   });
   revalidatePath("/shuttles");
@@ -667,10 +700,14 @@ export async function deleteFeedback(id: string) {
 
 // ─── Recurring Cost Actions ─────────────────────────────────────
 
-export async function getRecurringCosts() {
+export async function getRecurringCosts(playerId?: string) {
   const user = await requireAuth();
+  if (playerId) {
+    const owned = await verifyPlayerOwnership(playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
   return prisma.recurringCost.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, playerId: playerId ?? null },
     orderBy: { startDate: "desc" },
   });
 }
@@ -683,8 +720,13 @@ export async function createRecurringCost(data: {
   startDate: string;
   endDate?: string;
   notes?: string;
+  playerId?: string;
 }): Promise<{ ok: true; cost: Awaited<ReturnType<typeof prisma.recurringCost.create>> } | { ok: false; error: string }> {
   const user = await requireAuth();
+  if (data.playerId) {
+    const owned = await verifyPlayerOwnership(data.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
   try {
     const cost = await prisma.recurringCost.create({
       data: {
@@ -696,6 +738,7 @@ export async function createRecurringCost(data: {
         startDate: new Date(data.startDate),
         endDate: data.endDate ? new Date(data.endDate) : null,
         notes: data.notes ?? null,
+        playerId: data.playerId ?? null,
       },
     });
     revalidatePath("/costs");
@@ -717,16 +760,22 @@ export async function updateRecurringCost(
     startDate?: string;
     endDate?: string | null;
     notes?: string;
+    playerId?: string | null;
   }
 ): Promise<{ ok: true }> {
   const user = await requireAuth();
-  const { startDate, endDate, ...rest } = data;
+  if (data.playerId) {
+    const owned = await verifyPlayerOwnership(data.playerId, user.id);
+    if (!owned) throw new Error("Player not found.");
+  }
+  const { startDate, endDate, playerId, ...rest } = data;
   await prisma.recurringCost.updateMany({
     where: { id, userId: user.id },
     data: {
       ...rest,
       ...(startDate !== undefined && { startDate: new Date(startDate) }),
       ...(endDate !== undefined && { endDate: endDate === null ? null : new Date(endDate) }),
+      ...(playerId !== undefined && { playerId }),
     },
   });
   revalidatePath("/costs");
