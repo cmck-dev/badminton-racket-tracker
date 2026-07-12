@@ -700,14 +700,18 @@ export async function deleteFeedback(id: string) {
 
 // ─── Recurring Cost Actions ─────────────────────────────────────
 
-export async function getRecurringCosts(playerId?: string) {
+export async function getRecurringCosts(playerId?: string | null) {
   const user = await requireAuth();
   if (playerId) {
     const owned = await verifyPlayerOwnership(playerId, user.id);
     if (!owned) throw new Error("Player not found.");
   }
   return prisma.recurringCost.findMany({
-    where: { userId: user.id, playerId: playerId ?? null },
+    where: {
+      userId: user.id,
+      // undefined → no playerId filter (return all); null → unassigned only; string → player-scoped
+      ...(playerId !== undefined && { playerId }),
+    },
     orderBy: { startDate: "desc" },
   });
 }
@@ -1034,14 +1038,15 @@ export async function deletePlayer(
 ): Promise<{ ok: true } | { ok: false; code: "HAS_DATA"; message: string }> {
   const user = await requireAuth();
 
-  const [rackets, sessions, stringings, shuttles] = await Promise.all([
+  const [rackets, sessions, stringings, shuttles, costs] = await Promise.all([
     prisma.racket.count({ where: { playerId: id, userId: user.id } }),
     prisma.playSession.count({ where: { playerId: id, userId: user.id } }),
     prisma.stringingRecord.count({ where: { playerId: id, userId: user.id } }),
     prisma.shuttle.count({ where: { playerId: id, userId: user.id } }),
+    prisma.recurringCost.count({ where: { playerId: id, userId: user.id } }),
   ]);
 
-  const total = rackets + sessions + stringings + shuttles;
+  const total = rackets + sessions + stringings + shuttles + costs;
   if (total > 0) {
     return {
       ok: false,
