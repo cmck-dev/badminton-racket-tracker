@@ -55,6 +55,7 @@ model User {
   shuttles          Shuttle[]
   feedbacks         Feedback[]
   stringPreferences RacketStringPreference[]
+  recurringCosts    RecurringCost[]
 }
 
 model VerificationToken {
@@ -219,4 +220,21 @@ model Feedback {
   status      String   @default("Open") // "Open" | "In Progress" | "Done"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ─── Recurring Cost (club membership, coaching subscription) ────
+
+model RecurringCost {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String    // "Club" | "Coaching" | "Other"
+  name         String
+  billingCycle String    // "Monthly" | "Annual"
+  amount       Float
+  startDate    DateTime
+  endDate      DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
