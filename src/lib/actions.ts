@@ -893,7 +893,6 @@ export async function getAnalyticsData(playerId?: string) {
   const totalCourtCost = sessions.reduce((sum: number, s: { courtCost: number | null }) => sum + (s.courtCost ?? 0), 0);
   const totalShuttleCost = shuttles.reduce((sum: number, s: { price: number | null; quantity: number | null }) => sum + ((s.price ?? 0) * (s.quantity ?? 1)), 0);
 
-  const now = new Date();
   const totalSubscriptionCost = recurringCosts.reduce((sum, c) => {
     const start = new Date(c.startDate);
     const end = c.endDate ? new Date(c.endDate) : now;
