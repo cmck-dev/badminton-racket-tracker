@@ -1,4 +1,4 @@
-import { getRackets, getSessions, getStringings, getShuttles, getRecurringCosts } from "@/lib/actions";
+import { getRackets, getSessions, getStringings, getShuttles, getRecurringCosts, getActivePlayerId } from "@/lib/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -15,11 +15,12 @@ import {
 import { CurrencyAmount } from "@/components/currency-amount";
 
 export default async function DashboardPage() {
+  const playerId = await getActivePlayerId();
   const [rackets, sessions, stringings, shuttles, recurringCosts] = await Promise.all([
-    getRackets(),
-    getSessions(10),
-    getStringings(),
-    getShuttles(),
+    getRackets(false, playerId ?? undefined),
+    getSessions(10, playerId ?? undefined),
+    getStringings(undefined, playerId ?? undefined),
+    getShuttles(playerId ?? undefined),
     getRecurringCosts(),
   ]);
 

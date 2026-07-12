@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requireAuth, requireAdmin } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { generateRecurringDates } from "@/lib/recurrence";
 
 // ─── Racket Actions ─────────────────────────────────────────────
@@ -997,4 +998,13 @@ export async function deletePlayer(
   await prisma.player.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/players");
   return { ok: true };
+}
+
+export async function getActivePlayerId(): Promise<string | null> {
+  const user = await requireAuth();
+  const cookieStore = cookies();
+  const playerId = cookieStore.get("shuttletrack-player")?.value;
+  if (!playerId) return null;
+  const owned = await verifyPlayerOwnership(playerId, user.id);
+  return owned ? playerId : null;
 }

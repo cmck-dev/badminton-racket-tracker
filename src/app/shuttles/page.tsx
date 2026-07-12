@@ -1,9 +1,10 @@
 import { Suspense } from "react";
-import { getShuttles } from "@/lib/actions";
+import { getShuttles, getActivePlayerId } from "@/lib/actions";
 import { ShuttlesClient } from "./client";
 
 async function ShuttlesContent() {
-  const shuttles = await getShuttles();
+  const playerId = await getActivePlayerId();
+  const shuttles = await getShuttles(playerId ?? undefined);
   return <ShuttlesClient initialShuttles={shuttles} />;
 }
 

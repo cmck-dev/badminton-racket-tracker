@@ -1,9 +1,10 @@
 import { Suspense } from "react";
-import { getRackets } from "@/lib/actions";
+import { getRackets, getActivePlayerId } from "@/lib/actions";
 import { RacketsClient } from "./client";
 
 async function RacketsContent() {
-  const rackets = await getRackets(true);
+  const playerId = await getActivePlayerId();
+  const rackets = await getRackets(true, playerId ?? undefined);
   return <RacketsClient initialRackets={rackets} />;
 }
 

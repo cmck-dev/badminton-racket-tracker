@@ -1,11 +1,12 @@
 import { Suspense } from "react";
-import { getStringings, getRackets } from "@/lib/actions";
+import { getStringings, getRackets, getActivePlayerId } from "@/lib/actions";
 import { StringingClient } from "./client";
 
 async function StringingContent() {
+  const playerId = await getActivePlayerId();
   const [stringings, rackets] = await Promise.all([
-    getStringings(),
-    getRackets(),
+    getStringings(undefined, playerId ?? undefined),
+    getRackets(false, playerId ?? undefined),
   ]);
   return <StringingClient initialStringings={stringings} rackets={rackets} />;
 }

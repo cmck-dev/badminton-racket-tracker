@@ -1,7 +1,8 @@
-import { getAnalyticsData } from "@/lib/actions";
+import { getAnalyticsData, getActivePlayerId } from "@/lib/actions";
 import { AnalyticsClient } from "./client";
 
 export default async function AnalyticsPage() {
-  const data = await getAnalyticsData();
+  const playerId = await getActivePlayerId();
+  const data = await getAnalyticsData(playerId ?? undefined);
   return <AnalyticsClient data={data} />;
 }
