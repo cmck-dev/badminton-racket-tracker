@@ -958,11 +958,13 @@ export async function getAnalyticsData(playerId?: string) {
     const end = c.endDate ? new Date(c.endDate) : now;
     if (start > now) return sum; // hasn't started yet
     const effectiveEnd = end < now ? end : now;
+    const months =
+      (effectiveEnd.getFullYear() - start.getFullYear()) * 12 +
+      (effectiveEnd.getMonth() - start.getMonth());
     if (c.billingCycle === "Monthly") {
-      const months =
-        (effectiveEnd.getFullYear() - start.getFullYear()) * 12 +
-        (effectiveEnd.getMonth() - start.getMonth());
       return sum + Math.max(0, months) * c.amount;
+    } else if (c.billingCycle === "Quarterly") {
+      return sum + Math.max(0, Math.floor(months / 3)) * c.amount;
     } else {
       // Annual
       const years = effectiveEnd.getFullYear() - start.getFullYear();

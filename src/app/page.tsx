@@ -11,6 +11,7 @@ import {
   Feather,
   DollarSign,
   Receipt,
+  Bell,
 } from "lucide-react";
 import { CurrencyAmount } from "@/components/currency-amount";
 
@@ -38,20 +39,38 @@ export default async function DashboardPage() {
     const end = c.endDate ? new Date(c.endDate) : null;
     return start <= now && (!end || end >= now);
   });
-  const monthlyEquivalent = activeSubscriptions.reduce((sum, c) =>
-    sum + (c.billingCycle === "Monthly" ? c.amount : c.amount / 12), 0
-  );
+  const monthlyEquivalent = activeSubscriptions.reduce((sum, c) => {
+    if (c.billingCycle === "Monthly")   return sum + c.amount;
+    if (c.billingCycle === "Quarterly") return sum + c.amount / 3;
+    return sum + c.amount / 12; // Annual
+  }, 0);
+
+  // Renewals due within the next 30 days
+  const thirtyDaysFromNow = new Date(now);
+  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+  const renewalsDue = activeSubscriptions.filter((c) => {
+    const start = new Date(c.startDate);
+    const cycleMonths = c.billingCycle === "Monthly" ? 1 : c.billingCycle === "Quarterly" ? 3 : 12;
+    // Find the next renewal date by advancing from startDate by cycleMonths until it's in the future
+    const next = new Date(start);
+    while (next <= now) {
+      next.setMonth(next.getMonth() + cycleMonths);
+    }
+    return next <= thirtyDaysFromNow;
+  });
 
   const totalSubscriptionCost = recurringCosts.reduce((sum, c) => {
     const start = new Date(c.startDate);
     const end = c.endDate ? new Date(c.endDate) : now;
     if (start > now) return sum;
     const effectiveEnd = end < now ? end : now;
+    const months =
+      (effectiveEnd.getFullYear() - start.getFullYear()) * 12 +
+      (effectiveEnd.getMonth() - start.getMonth());
     if (c.billingCycle === "Monthly") {
-      const months =
-        (effectiveEnd.getFullYear() - start.getFullYear()) * 12 +
-        (effectiveEnd.getMonth() - start.getMonth());
       return sum + Math.max(0, months) * c.amount;
+    } else if (c.billingCycle === "Quarterly") {
+      return sum + Math.max(0, Math.floor(months / 3)) * c.amount;
     } else {
       const years = effectiveEnd.getFullYear() - start.getFullYear();
       return sum + Math.max(0, years) * c.amount;
@@ -173,6 +192,71 @@ export default async function DashboardPage() {
       </Link>
 
       {/* Alerts & Recent */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Restring Alerts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {needsRestring.length === 0 ? (
+              <p className="text-sm text-muted-foreground">All rackets are in good shape!</p>
+            ) : (
+              <div className="space-y-2">
+                {needsRestring.map((r) => (
+                  <Link key={r.id} href="/stringing?new=true">
+                    <div className="flex items-center justify-between p-2 rounded-md bg-yellow-50 border border-yellow-200 hover:bg-yellow-100 transition-colors">
+                      <span className="text-sm font-medium">{r.brand} {r.model}</span>
+                      <Badge variant="outline" className="text-yellow-700 border-yellow-300">Restring needed</Badge>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Bell className="h-5 w-5 text-blue-500" />
+              Subscription Renewals
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {renewalsDue.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No renewals due in the next 30 days.</p>
+            ) : (
+              <div className="space-y-2">
+                {renewalsDue.map((c) => {
+                  const start = new Date(c.startDate);
+                  const cycleMonths = c.billingCycle === "Monthly" ? 1 : c.billingCycle === "Quarterly" ? 3 : 12;
+                  const next = new Date(start);
+                  while (next <= now) next.setMonth(next.getMonth() + cycleMonths);
+                  return (
+                    <Link key={c.id} href="/costs">
+                      <div className="flex items-center justify-between p-2 rounded-md bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors">
+                        <div>
+                          <span className="text-sm font-medium">{c.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">{c.billingCycle}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-medium text-blue-700">
+                            {next.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>

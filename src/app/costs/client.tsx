@@ -31,12 +31,13 @@ type RecurringCost = {
   playerId: string | null;
 };
 
-const TYPE_OPTIONS = ["Club", "Coaching", "Other"];
-const CYCLE_OPTIONS = ["Monthly", "Annual"];
+const TYPE_OPTIONS = ["Club", "Coaching", "Shuttles", "Other"];
+const CYCLE_OPTIONS = ["Monthly", "Quarterly", "Annual"];
 
 const TYPE_STYLES: Record<string, string> = {
   Club:     "bg-blue-100 text-blue-800 border-blue-300",
   Coaching: "bg-purple-100 text-purple-800 border-purple-300",
+  Shuttles: "bg-yellow-100 text-yellow-800 border-yellow-300",
   Other:    "bg-gray-100 text-gray-700 border-gray-300",
 };
 
@@ -132,7 +133,9 @@ export function CostsClient({
 
   const activeCosts = initialCosts.filter(isActive);
   const monthlyTotal = activeCosts.reduce((sum, c) => {
-    return sum + (c.billingCycle === "Monthly" ? c.amount : c.amount / 12);
+    if (c.billingCycle === "Monthly")   return sum + c.amount;
+    if (c.billingCycle === "Quarterly") return sum + c.amount / 3;
+    return sum + c.amount / 12; // Annual
   }, 0);
 
   return (
