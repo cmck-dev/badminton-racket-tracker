@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 type Player = { id: string; name: string; avatarColor: string };
 
@@ -26,6 +27,7 @@ export function PlayerProvider({
   initialPlayers: Player[];
 }) {
   const [activePlayerId, setActivePlayerIdState] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -45,6 +47,8 @@ export function PlayerProvider({
       localStorage.removeItem(STORAGE_KEY);
       document.cookie = `shuttletrack-player=; path=/; max-age=0`;
     }
+    // Re-run server components so page data reflects the new player
+    router.refresh();
   }
 
   return (

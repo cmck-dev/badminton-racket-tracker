@@ -64,16 +64,17 @@ export default async function DashboardPage() {
     const end = c.endDate ? new Date(c.endDate) : now;
     if (start > now) return sum;
     const effectiveEnd = end < now ? end : now;
+    // +1: the period that started on startDate counts as 1 payment made
     const months =
       (effectiveEnd.getFullYear() - start.getFullYear()) * 12 +
-      (effectiveEnd.getMonth() - start.getMonth());
+      (effectiveEnd.getMonth() - start.getMonth()) + 1;
     if (c.billingCycle === "Monthly") {
-      return sum + Math.max(0, months) * c.amount;
+      return sum + Math.max(1, months) * c.amount;
     } else if (c.billingCycle === "Quarterly") {
-      return sum + Math.max(0, Math.floor(months / 3)) * c.amount;
+      return sum + Math.max(1, Math.ceil(months / 3)) * c.amount;
     } else {
-      const years = effectiveEnd.getFullYear() - start.getFullYear();
-      return sum + Math.max(0, years) * c.amount;
+      const years = effectiveEnd.getFullYear() - start.getFullYear() + 1;
+      return sum + Math.max(1, years) * c.amount;
     }
   }, 0);
   const grandTotal = totalRacketCost + totalStringingCost + totalCourtCost + totalShuttleCost + totalSubscriptionCost;
