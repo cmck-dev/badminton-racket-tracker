@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +102,17 @@ function lbsToKg(lbs: number): string {
 
 function RolePicker({ racket }: { racket: RacketWithRelations }) {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+
+  function handleOpen() {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      // Dropdown is ~160px tall; open upward if less than 180px to bottom of viewport
+      setOpenUpward(rect.bottom + 180 > window.innerHeight);
+    }
+    setOpen((o) => !o);
+  }
 
   async function setRole(role: RacketRole | null) {
     setOpen(false);
@@ -111,8 +122,9 @@ function RolePicker({ racket }: { racket: RacketWithRelations }) {
   return (
     <div className="relative">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleOpen}
         className={cn(
           "flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border transition-colors",
           racket.role
@@ -126,7 +138,10 @@ function RolePicker({ racket }: { racket: RacketWithRelations }) {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-7 z-20 w-36 rounded-md border bg-popover shadow-md py-1">
+          <div className={cn(
+            "absolute left-0 z-20 w-36 rounded-md border bg-popover shadow-md py-1",
+            openUpward ? "bottom-7" : "top-7"
+          )}>
             {ROLES.map((r) => (
               <button
                 key={r}
