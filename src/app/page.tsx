@@ -6,11 +6,11 @@ import {
   Swords,
   CalendarDays,
   Wrench,
-  Clock,
   TrendingUp,
   AlertTriangle,
   Feather,
   DollarSign,
+  Receipt,
 } from "lucide-react";
 import { CurrencyAmount } from "@/components/currency-amount";
 
@@ -21,9 +21,10 @@ export default async function DashboardPage() {
     getSessions(10, playerId ?? undefined),
     getStringings(undefined, playerId ?? undefined),
     getShuttles(playerId ?? undefined),
-    getRecurringCosts(),
+    getRecurringCosts(playerId ?? null),
   ]);
 
+  const now = new Date();
   const totalSessions = sessions.length;
   const totalHours = Math.round(sessions.reduce((sum, s) => sum + s.durationMinutes, 0) / 60 * 10) / 10;
   const activeRackets = rackets.filter((r) => !r.isArchived).length;
@@ -31,7 +32,16 @@ export default async function DashboardPage() {
   const totalCourtCost = sessions.reduce((sum, s) => sum + ((s as { courtCost?: number | null }).courtCost || 0), 0);
   const totalRacketCost = rackets.reduce((sum, r) => sum + ((r as { purchasePrice?: number | null }).purchasePrice || 0), 0);
   const totalShuttleCost = shuttles.reduce((sum, s) => sum + ((s.price ?? 0) * (s.quantity ?? 1)), 0);
-  const now = new Date();
+
+  const activeSubscriptions = recurringCosts.filter((c) => {
+    const start = new Date(c.startDate);
+    const end = c.endDate ? new Date(c.endDate) : null;
+    return start <= now && (!end || end >= now);
+  });
+  const monthlyEquivalent = activeSubscriptions.reduce((sum, c) =>
+    sum + (c.billingCycle === "Monthly" ? c.amount : c.amount / 12), 0
+  );
+
   const totalSubscriptionCost = recurringCosts.reduce((sum, c) => {
     const start = new Date(c.startDate);
     const end = c.endDate ? new Date(c.endDate) : now;
@@ -66,7 +76,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Link href="/rackets">
           <Card className="hover:bg-accent transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -119,6 +129,21 @@ export default async function DashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">{shuttles.length}</div>
               <p className="text-xs text-muted-foreground"><CurrencyAmount amount={totalShuttleCost} /> spent</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/costs">
+          <Card className="hover:bg-accent transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Subscriptions</CardTitle>
+              <Receipt className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold"><CurrencyAmount amount={Math.round(monthlyEquivalent * 100) / 100} /></div>
+              <p className="text-xs text-muted-foreground">
+                {activeSubscriptions.length} active · per month
+              </p>
             </CardContent>
           </Card>
         </Link>
