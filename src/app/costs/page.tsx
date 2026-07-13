@@ -5,7 +5,7 @@ import { CostsClient } from "./client";
 async function CostsContent() {
   const activePlayerId = await getActivePlayerId();
   const [costs, players] = await Promise.all([
-    getRecurringCosts(activePlayerId ?? undefined),
+    getRecurringCosts(activePlayerId),
     getPlayers().catch(() => []),
   ]);
   return <CostsClient initialCosts={costs} players={players} initialPlayerId={activePlayerId} />;

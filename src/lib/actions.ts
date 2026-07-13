@@ -857,7 +857,7 @@ export async function getAnalyticsData(playerId?: string) {
     }),
     prisma.shuttle.findMany({ where: { userId: user.id, playerId: scopedPlayerId } }),
     getPlayerProfile(),
-    prisma.recurringCost.findMany({ where: { userId: user.id } }),
+    prisma.recurringCost.findMany({ where: { userId: user.id, playerId: scopedPlayerId } }),
   ]);
 
   // Racket usage — via join table
